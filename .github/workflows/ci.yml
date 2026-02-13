@@ -3,6 +3,11 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '*.md'
+      - 'LICENSE'
+      - '.gitignore'
+      - 'appcast.xml'
   pull_request:
     branches: [main]
 
@@ -59,3 +64,69 @@ jobs:
       - name: Run SwiftLint
         working-directory: ${{ env.PROJECT_DIR }}
         run: swiftlint lint --strict
+
+  tag:
+    name: Create Version Tag
+    needs: [build-and-test, lint]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Get latest tag
+        id: latest
+        run: |
+          # Get latest version tag
+          LATEST=$(git tag -l 'v*' --sort=-v:refname | head -1)
+          if [ -z "$LATEST" ]; then
+            LATEST="v0.0.0"
+          fi
+          echo "tag=$LATEST" >> $GITHUB_OUTPUT
+          echo "Latest tag: $LATEST"
+          
+      - name: Determine version bump
+        id: bump
+        run: |
+          LATEST="${{ steps.latest.outputs.tag }}"
+          # Remove 'v' prefix
+          VERSION="${LATEST#v}"
+          
+          # Parse version
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          MINOR=$(echo "$VERSION" | cut -d. -f2)
+          PATCH=$(echo "$VERSION" | cut -d. -f3 | cut -d- -f1)
+          
+          # Get commit message
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          
+          # Determine bump type from conventional commit
+          if echo "$COMMIT_MSG" | grep -qiE "^[a-z]+(\(.+\))?!:|BREAKING CHANGE"; then
+            # Major bump for breaking changes
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+          elif echo "$COMMIT_MSG" | grep -qiE "^feat(\(.+\))?:"; then
+            # Minor bump for features
+            MINOR=$((MINOR + 1))
+            PATCH=0
+          else
+            # Patch bump for fixes, perf, refactor, etc.
+            PATCH=$((PATCH + 1))
+          fi
+          
+          NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "New version: $NEW_VERSION"
+          
+      - name: Create tag
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git tag -a "${{ steps.bump.outputs.version }}" -m "Release ${{ steps.bump.outputs.version }}"
+          git push origin "${{ steps.bump.outputs.version }}"
