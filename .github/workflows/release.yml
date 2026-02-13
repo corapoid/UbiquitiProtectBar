@@ -1,0 +1,148 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.0)'
+        required: true
+
+env:
+  SCHEME: ProtectBar
+  PROJECT_DIR: ProtectBar
+
+jobs:
+  build:
+    name: Build and Release
+    runs-on: macos-14
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '15.2'
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Resolve dependencies
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: swift package resolve
+
+      - name: Run tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: swift test
+
+      - name: Build Release
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          xcodebuild -scheme ${{ env.SCHEME }} \
+            -configuration Release \
+            -destination 'platform=macOS' \
+            -derivedDataPath build \
+            -archivePath build/ProtectBar.xcarchive \
+            archive \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Package app
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          mkdir -p dist dmg_contents
+          cp -R build/ProtectBar.xcarchive/Products/Applications/ProtectBar.app dist/
+          cp -R dist/ProtectBar.app dmg_contents/
+          ln -s /Applications dmg_contents/Applications
+          hdiutil create -volname "ProtectBar" -srcfolder dmg_contents -ov -format UDZO "dist/ProtectBar-${{ steps.version.outputs.version }}.dmg"
+          cd dist && ditto -c -k --sequesterRsrc --keepParent ProtectBar.app "ProtectBar-${{ steps.version.outputs.version }}.zip"
+
+      - name: Sign ZIP for Sparkle
+        working-directory: ${{ env.PROJECT_DIR }}
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          ZIP_PATH="dist/ProtectBar-${{ steps.version.outputs.version }}.zip"
+          SIGN_TOOL=".build/artifacts/sparkle/Sparkle/bin/sign_update"
+          if [ -n "$SPARKLE_PRIVATE_KEY" ] && [ -f "$SIGN_TOOL" ]; then
+            echo "$SPARKLE_PRIVATE_KEY" > /tmp/key.txt
+            SIGNATURE=$("$SIGN_TOOL" "$ZIP_PATH" --ed-key-file /tmp/key.txt | grep edSignature | sed 's/.*"\(.*\)".*/\1/')
+            rm /tmp/key.txt
+          else
+            SIGNATURE="UNSIGNED"
+          fi
+          echo "$SIGNATURE" > dist/signature.txt
+
+      - name: Generate appcast item
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ZIP_PATH="dist/ProtectBar-$VERSION.zip"
+          SIZE=$(stat -f%z "$ZIP_PATH")
+          DATE=$(date -R)
+          SIG=$(cat dist/signature.txt)
+          URL="https://github.com/${{ github.repository }}/releases/download/v$VERSION/ProtectBar-$VERSION.zip"
+          echo "<item><title>Version $VERSION</title><pubDate>$DATE</pubDate><sparkle:version>$VERSION</sparkle:version><sparkle:shortVersionString>$VERSION</sparkle:shortVersionString><sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion><enclosure url=\"$URL\" type=\"application/octet-stream\" sparkle:edSignature=\"$SIG\" length=\"$SIZE\"/></item>" > dist/appcast-item.xml
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ProtectBar-${{ steps.version.outputs.version }}
+          path: |
+            ${{ env.PROJECT_DIR }}/dist/*.dmg
+            ${{ env.PROJECT_DIR }}/dist/*.zip
+            ${{ env.PROJECT_DIR }}/dist/appcast-item.xml
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            ${{ env.PROJECT_DIR }}/dist/*.dmg
+            ${{ env.PROJECT_DIR }}/dist/*.zip
+          draft: true
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  update-appcast:
+    name: Update Appcast
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ProtectBar-${{ needs.build.outputs.version }}
+          path: artifacts
+
+      - name: Update appcast
+        run: |
+          ITEM=$(cat artifacts/appcast-item.xml)
+          sed -i "s|<!-- ITEMS -->|<!-- ITEMS -->\n    $ITEM|" appcast.xml || true
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add appcast.xml
+          git diff --staged --quiet || git commit -m "Update appcast for v${{ needs.build.outputs.version }}"
+          git push
