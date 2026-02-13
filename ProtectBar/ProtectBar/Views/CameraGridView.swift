@@ -125,7 +125,7 @@ struct CameraGridView: View {
                     }
                     .onDrop(of: [UTType.text], delegate: CameraDropDelegate(
                         camera: camera,
-                        viewModel: viewModel,
+                        cameras: visibleCameras,
                         settings: settings,
                         draggingCamera: $draggingCamera
                     ))
@@ -198,7 +198,7 @@ struct CameraGridView: View {
 
 struct CameraDropDelegate: DropDelegate {
     let camera: Camera
-    let viewModel: CameraGridViewModel
+    let cameras: [Camera]
     let settings: AppSettings
     @Binding var draggingCamera: Camera?
     
@@ -211,7 +211,15 @@ struct CameraDropDelegate: DropDelegate {
         guard let dragging = draggingCamera,
               dragging.id != camera.id else { return }
         
-        viewModel.reorderCamera(dragging, toPosition: camera, settings: settings)
+        // Reorder within the visible cameras list
+        guard var newOrder = Optional(cameras.map { $0.id }),
+              let sourceIndex = newOrder.firstIndex(of: dragging.id),
+              let targetIndex = newOrder.firstIndex(of: camera.id),
+              sourceIndex != targetIndex else { return }
+        
+        newOrder.remove(at: sourceIndex)
+        newOrder.insert(dragging.id, at: targetIndex)
+        settings.cameraOrder = newOrder
     }
     
     func dropUpdated(info: DropInfo) -> DropProposal? {
