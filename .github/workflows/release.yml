@@ -18,6 +18,8 @@ jobs:
   build:
     name: Build and Release
     runs-on: macos-14
+    permissions:
+      contents: write
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
