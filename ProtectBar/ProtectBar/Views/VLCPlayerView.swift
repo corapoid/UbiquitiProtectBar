@@ -9,6 +9,7 @@ struct VLCPlayerView: View {
     let apiClient: ProtectAPIClient
     let baseURL: String
     let cameraId: String
+    let isVisible: Bool
 
     @State private var useMPV: Bool = true
 
@@ -36,6 +37,17 @@ struct VLCPlayerView: View {
         .onDisappear {
             streamManager.stopStream()
         }
+        .onChange(of: isVisible) { visible in
+            // Pause/resume snapshot stream based on visibility
+            // (MPV handles this internally via MPVPlayerNSView.updateNSView)
+            if rtspURL == nil || !useMPV {
+                if visible {
+                    streamManager.resumeStream()
+                } else {
+                    streamManager.pauseStream()
+                }
+            }
+        }
     }
 
     // MARK: - MPV Content
@@ -44,6 +56,7 @@ struct VLCPlayerView: View {
     private func mpvContent(url: String) -> some View {
         MPVPlayerNSView(
             rtspURL: url,
+            isVisible: isVisible,
             onStateChange: { state in
                 Task { @MainActor in
                     streamManager.state = state

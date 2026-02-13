@@ -112,13 +112,15 @@ struct PinnedCameraContentView: View {
 
     var body: some View {
         ZStack {
+            // Pinned windows are always visible (independent of menu bar)
             VLCPlayerView(
                 rtspURL: rtspURL,
                 cameraName: camera.name,
                 streamManager: streamManager,
                 apiClient: apiClient,
                 baseURL: baseURL,
-                cameraId: camera.id
+                cameraId: camera.id,
+                isVisible: true
             )
 
             // Close button on hover

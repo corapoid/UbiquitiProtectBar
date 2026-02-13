@@ -41,14 +41,15 @@ struct PinnedWindowView: View {
 
             Divider()
 
-            // Stream view
+            // Stream view - pinned windows are always visible (independent of menu bar)
             VLCPlayerView(
                 rtspURL: rtspURL,
                 cameraName: camera.name,
                 streamManager: streamManager,
                 apiClient: apiClient,
                 baseURL: baseURL,
-                cameraId: camera.id
+                cameraId: camera.id,
+                isVisible: true
             )
 
             // Info bar

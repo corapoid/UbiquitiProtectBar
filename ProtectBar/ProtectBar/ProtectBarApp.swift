@@ -8,6 +8,7 @@ struct ProtectBarApp: App {
     @StateObject private var windowManager = WindowManager()
     @StateObject private var connectionVM: ConnectionViewModel
     @StateObject private var gridVM: CameraGridViewModel
+    @StateObject private var visibilityTracker = MenuBarVisibilityTracker()
     
     // Sparkle updater
     private let updaterController: SPUStandardUpdaterController
@@ -36,7 +37,8 @@ struct ProtectBarApp: App {
                 gridVM: gridVM,
                 windowManager: windowManager,
                 apiClient: apiClient,
-                updater: updaterController.updater
+                updater: updaterController.updater,
+                isMenuVisible: visibilityTracker.isVisible
             )
         } label: {
             Label("ProtectBar", systemImage: "video.fill")

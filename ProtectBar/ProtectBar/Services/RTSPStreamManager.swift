@@ -23,6 +23,13 @@ final class RTSPStreamManager: ObservableObject {
 
     private var snapshotTimer: Timer?
     private var isActive = false
+    private var isPaused = false
+    
+    // Snapshot stream params for resume
+    private var savedApiClient: ProtectAPIClient?
+    private var savedBaseURL: String?
+    private var savedCameraId: String?
+    private var savedInterval: TimeInterval = 1.0
 
     // MARK: - Snapshot-based streaming (fallback)
 
@@ -35,7 +42,14 @@ final class RTSPStreamManager: ObservableObject {
     ) {
         stopStream()
         isActive = true
+        isPaused = false
         state = .connecting
+        
+        // Save params for resume
+        savedApiClient = apiClient
+        savedBaseURL = baseURL
+        savedCameraId = cameraId
+        savedInterval = interval
 
         snapshotTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
@@ -80,10 +94,56 @@ final class RTSPStreamManager: ObservableObject {
 
     func stopStream() {
         isActive = false
+        isPaused = false
         snapshotTimer?.invalidate()
         snapshotTimer = nil
         state = .idle
         currentFrame = nil
+        
+        // Clear saved params
+        savedApiClient = nil
+        savedBaseURL = nil
+        savedCameraId = nil
+    }
+    
+    // MARK: - Pause/Resume
+    
+    /// Pause snapshot fetching (keeps state for resume)
+    func pauseStream() {
+        guard isActive, !isPaused else { return }
+        isPaused = true
+        snapshotTimer?.invalidate()
+        snapshotTimer = nil
+    }
+    
+    /// Resume snapshot fetching
+    func resumeStream() {
+        guard isActive, isPaused,
+              let apiClient = savedApiClient,
+              let baseURL = savedBaseURL,
+              let cameraId = savedCameraId else { return }
+        
+        isPaused = false
+        
+        snapshotTimer = Timer.scheduledTimer(withTimeInterval: savedInterval, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.isActive, !self.isPaused else { return }
+                do {
+                    let data = try await apiClient.fetchSnapshot(
+                        baseURL: baseURL,
+                        cameraId: cameraId,
+                        width: AppConstants.snapshotWidth,
+                        height: AppConstants.snapshotHeight
+                    )
+                    if let image = NSImage(data: data) {
+                        self.currentFrame = image
+                        self.state = .playing
+                    }
+                } catch {
+                    self.state = .error(error.localizedDescription)
+                }
+            }
+        }
     }
 
     deinit {

@@ -6,6 +6,7 @@ struct CameraGridView: View {
     @ObservedObject var viewModel: CameraGridViewModel
     @ObservedObject var settings: AppSettings
     let apiClient: ProtectAPIClient
+    let isMenuVisible: Bool
     let onPinCamera: (Camera) -> Void
     
     @State private var showHiddenCameras = false
@@ -111,6 +112,7 @@ struct CameraGridView: View {
                         rtspURL: viewModel.rtspURL(for: camera, settings: settings),
                         apiClient: apiClient,
                         baseURL: settings.baseURL,
+                        isVisible: isMenuVisible,
                         onTap: { viewModel.selectCamera(camera) },
                         onPin: { onPinCamera(camera) }
                     )

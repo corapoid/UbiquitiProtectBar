@@ -13,6 +13,7 @@ struct MenuBarView: View {
     @ObservedObject var windowManager: WindowManager
     let apiClient: ProtectAPIClient
     let updater: SPUUpdater
+    let isMenuVisible: Bool
 
     @State private var showSettings = false
     @State private var currentTab: Tab = .cameras
@@ -132,6 +133,7 @@ struct MenuBarView: View {
                     viewModel: gridVM,
                     settings: settings,
                     apiClient: apiClient,
+                    isMenuVisible: isMenuVisible,
                     onPinCamera: { camera in
                         pinCamera(camera)
                     }

@@ -6,6 +6,7 @@ struct CameraCellView: View {
     let rtspURL: String?
     let apiClient: ProtectAPIClient
     let baseURL: String
+    let isVisible: Bool
     let onTap: () -> Void
     let onPin: () -> Void
     var isMotionDetected: Bool = false
@@ -21,7 +22,8 @@ struct CameraCellView: View {
                 streamManager: streamManager,
                 apiClient: apiClient,
                 baseURL: baseURL,
-                cameraId: camera.id
+                cameraId: camera.id,
+                isVisible: isVisible
             )
 
             // Motion detection indicator

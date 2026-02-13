@@ -401,6 +401,44 @@ final class MPVMetalView: MTKView {
         }
     }
     
+    // MARK: - Pause/Resume
+    
+    private var isStreamPaused = false
+    
+    /// Pause the stream (stops decoding but keeps context)
+    func pause() {
+        guard let mpv, !isShuttingDown, !isStreamPaused else { return }
+        isStreamPaused = true
+        
+        "set".withCString { cmdPtr in
+            "pause".withCString { propPtr in
+                "yes".withCString { valPtr in
+                    var args: [UnsafePointer<CChar>?] = [cmdPtr, propPtr, valPtr, nil]
+                    _ = args.withUnsafeMutableBufferPointer { buf in
+                        mpv_command(mpv, buf.baseAddress)
+                    }
+                }
+            }
+        }
+    }
+    
+    /// Resume the stream
+    func resume() {
+        guard let mpv, !isShuttingDown, isStreamPaused else { return }
+        isStreamPaused = false
+        
+        "set".withCString { cmdPtr in
+            "pause".withCString { propPtr in
+                "no".withCString { valPtr in
+                    var args: [UnsafePointer<CChar>?] = [cmdPtr, propPtr, valPtr, nil]
+                    _ = args.withUnsafeMutableBufferPointer { buf in
+                        mpv_command(mpv, buf.baseAddress)
+                    }
+                }
+            }
+        }
+    }
+    
     // MARK: - Cleanup
     
     func shutdown() {
@@ -440,6 +478,7 @@ final class MPVMetalView: MTKView {
 
 struct MPVPlayerNSView: NSViewRepresentable {
     let rtspURL: String
+    let isVisible: Bool
     var onStateChange: ((RTSPStreamManager.StreamState) -> Void)?
     
     func makeNSView(context: Context) -> MPVMetalView {
@@ -450,7 +489,12 @@ struct MPVPlayerNSView: NSViewRepresentable {
     }
     
     func updateNSView(_ nsView: MPVMetalView, context: Context) {
-        // URL changes handled by recreating the view
+        // Pause/resume based on visibility
+        if isVisible {
+            nsView.resume()
+        } else {
+            nsView.pause()
+        }
     }
     
     static func dismantleNSView(_ nsView: MPVMetalView, coordinator: ()) {
