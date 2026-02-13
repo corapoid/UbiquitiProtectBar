@@ -23,8 +23,10 @@ final class MenuBarVisibilityTracker: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            guard let window = notification.object as? NSWindow,
-                  Self.isMenuBarExtraWindow(window) else { return }
+            guard let window = notification.object as? NSWindow else { return }
+            let className = String(describing: type(of: window))
+            // MenuBarExtra uses _NSPopoverWindow or similar
+            guard className.contains("Popover") || className.contains("MenuBarExtra") else { return }
             Task { @MainActor [weak self] in
                 self?.isVisible = true
             }
@@ -37,21 +39,13 @@ final class MenuBarVisibilityTracker: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            guard let window = notification.object as? NSWindow,
-                  Self.isMenuBarExtraWindow(window) else { return }
+            guard let window = notification.object as? NSWindow else { return }
+            let className = String(describing: type(of: window))
+            guard className.contains("Popover") || className.contains("MenuBarExtra") else { return }
             Task { @MainActor [weak self] in
                 self?.isVisible = false
             }
         }
         observers.append(resignObserver)
-    }
-    
-    /// Check if this is the MenuBarExtra panel window
-    nonisolated private static func isMenuBarExtraWindow(_ window: NSWindow) -> Bool {
-        // MenuBarExtra creates an NSPanel with specific characteristics
-        let className = String(describing: type(of: window))
-        return className.contains("Popover") ||
-               className.contains("MenuBarExtra") ||
-               (window is NSPanel && window.title.isEmpty && window.level == .popUpMenu)
     }
 }
