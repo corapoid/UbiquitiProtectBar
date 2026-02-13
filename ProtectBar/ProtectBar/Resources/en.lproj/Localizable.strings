@@ -1,0 +1,82 @@
+/* 
+  Localizable.strings (English)
+  ProtectBar
+*/
+
+// MARK: - General
+"app.name" = "ProtectBar";
+
+// MARK: - Connection
+"connection.local" = "Local Network";
+"connection.local.description" = "Connect directly to your UniFi Protect NVR on your local network";
+
+// MARK: - Settings
+"settings.title" = "Settings";
+"settings.connection_type" = "Connection Type";
+"settings.nvr_address" = "NVR Address";
+"settings.nvr_address.placeholder" = "192.168.1.1 or hostname";
+"settings.authentication" = "Authentication";
+"settings.api_key" = "API Key";
+"settings.api_key.hint" = "UniFi OS Settings > API Access > Create Token";
+"settings.username" = "Username";
+"settings.password" = "Password";
+"settings.stream_quality" = "Stream Quality";
+"settings.stream_quality.hint" = "Lower quality uses less bandwidth and CPU";
+"settings.test_connection" = "Test Connection";
+"settings.save_connect" = "Save & Connect";
+"settings.disconnect_clear" = "Disconnect & Clear";
+
+// MARK: - Stream Quality
+"quality.low" = "Low (360p)";
+"quality.medium" = "Medium (720p)";
+"quality.high" = "High (1080p+)";
+
+// MARK: - Camera Grid
+"grid.cameras_count" = "%d cameras";
+"grid.loading" = "Loading cameras...";
+"grid.empty" = "No cameras available";
+"grid.empty.hint" = "Check your NVR settings or enable RTSP";
+"grid.refresh" = "Refresh";
+"grid.unpin_all" = "Unpin All";
+
+// MARK: - Camera Actions
+"camera.hide" = "Hide Camera";
+"camera.show" = "Show Camera";
+"camera.pin" = "Pin to Desktop";
+"camera.show_hidden" = "Show hidden cameras";
+"camera.hide_hidden" = "Hide hidden cameras";
+
+// MARK: - Layout
+"layout.2_columns" = "2 columns";
+"layout.4_columns" = "4 columns";
+"layout.single_row" = "All in one row";
+
+// MARK: - Errors
+"error.invalid_url" = "Invalid NVR URL";
+"error.invalid_response" = "Invalid response from NVR";
+"error.unauthorized" = "Invalid credentials or session expired.";
+"error.forbidden" = "Access denied (403). Account may be locked or IP blocked.";
+"error.rate_limited" = "Too many requests. Please wait a moment.";
+"error.http" = "HTTP error: %d";
+"error.decoding" = "Failed to parse NVR response: %@";
+"error.connection_failed" = "Connection failed: %@";
+
+// MARK: - Error Help
+"error.help.unauthorized" = "Check your API key or credentials. For API key, generate a new one in UniFi OS Settings > API Access.";
+"error.help.forbidden" = "Your account may be temporarily locked due to failed login attempts. Wait a few minutes and try again.";
+"error.help.connection" = "Make sure you're connected to the same network as your NVR and the address is correct.";
+
+// MARK: - Connection Status
+"status.connected" = "Connected";
+"status.connecting" = "Connecting...";
+"status.disconnected" = "Disconnected";
+"status.error" = "Error";
+
+// MARK: - Test Results
+"test.success" = "Connected! Found %d cameras.";
+"test.failed" = "Connection failed";
+
+// MARK: - Menu
+"menu.settings" = "Settings";
+"menu.quit" = "Quit";
+"menu.check_updates" = "Check for Updates";
