@@ -65,13 +65,14 @@ jobs:
         working-directory: ${{ env.PROJECT_DIR }}
         run: swiftlint lint --strict
 
-  tag:
-    name: Create Version Tag
+  tag-and-release:
+    name: Create Version Tag and Trigger Release
     needs: [build-and-test, lint]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
+      actions: write
     
     steps:
       - name: Checkout
@@ -122,6 +123,8 @@ jobs:
           
           NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          # Extract version without 'v' for release workflow
+          echo "version_number=${NEW_VERSION#v}" >> $GITHUB_OUTPUT
           echo "New version: $NEW_VERSION"
           
       - name: Create tag
@@ -130,3 +133,9 @@ jobs:
           git config user.email "actions@github.com"
           git tag -a "${{ steps.bump.outputs.version }}" -m "Release ${{ steps.bump.outputs.version }}"
           git push origin "${{ steps.bump.outputs.version }}"
+          
+      - name: Trigger Release workflow
+        run: |
+          gh workflow run release.yml -f version=${{ steps.bump.outputs.version_number }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
