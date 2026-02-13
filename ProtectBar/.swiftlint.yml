@@ -1,0 +1,55 @@
+excluded:
+  - .build
+  - DerivedData
+  - Pods
+  - Carthage
+  - Package.swift
+
+disabled_rules:
+  - trailing_whitespace
+  - line_length
+  - todo
+
+opt_in_rules:
+  - empty_count
+  - closure_spacing
+  - contains_over_first_not_nil
+  - discouraged_object_literal
+  - empty_string
+  - first_where
+  - modifier_order
+  - overridden_super_call
+  - private_action
+  - private_outlet
+  - sorted_first_last
+  - yoda_condition
+
+identifier_name:
+  min_length: 2
+  excluded:
+    - id
+    - x
+    - y
+    - i
+    - w
+    - h
+
+type_name:
+  min_length: 3
+  max_length: 50
+
+file_length:
+  warning: 500
+  error: 1000
+
+function_body_length:
+  warning: 50
+  error: 100
+
+cyclomatic_complexity:
+  warning: 15
+  error: 25
+
+type_body_length:
+  warning: 350
+  error: 500

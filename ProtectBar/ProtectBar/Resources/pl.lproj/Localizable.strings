@@ -1,0 +1,82 @@
+/* 
+  Localizable.strings (Polish)
+  ProtectBar
+*/
+
+// MARK: - General
+"app.name" = "ProtectBar";
+
+// MARK: - Connection
+"connection.local" = "Sieć lokalna";
+"connection.local.description" = "Połącz bezpośrednio z rejestratorem UniFi Protect w sieci lokalnej";
+
+// MARK: - Settings
+"settings.title" = "Ustawienia";
+"settings.connection_type" = "Typ połączenia";
+"settings.nvr_address" = "Adres NVR";
+"settings.nvr_address.placeholder" = "192.168.1.1 lub nazwa hosta";
+"settings.authentication" = "Uwierzytelnianie";
+"settings.api_key" = "Klucz API";
+"settings.api_key.hint" = "UniFi OS Ustawienia > API Access > Create Token";
+"settings.username" = "Nazwa użytkownika";
+"settings.password" = "Hasło";
+"settings.stream_quality" = "Jakość strumienia";
+"settings.stream_quality.hint" = "Niższa jakość zużywa mniej pasma i CPU";
+"settings.test_connection" = "Testuj połączenie";
+"settings.save_connect" = "Zapisz i połącz";
+"settings.disconnect_clear" = "Rozłącz i wyczyść";
+
+// MARK: - Stream Quality
+"quality.low" = "Niska (360p)";
+"quality.medium" = "Średnia (720p)";
+"quality.high" = "Wysoka (1080p+)";
+
+// MARK: - Camera Grid
+"grid.cameras_count" = "Kamery: %d";
+"grid.loading" = "Ładowanie kamer...";
+"grid.empty" = "Brak dostępnych kamer";
+"grid.empty.hint" = "Sprawdź ustawienia NVR lub włącz RTSP";
+"grid.refresh" = "Odśwież";
+"grid.unpin_all" = "Odepnij wszystkie";
+
+// MARK: - Camera Actions
+"camera.hide" = "Ukryj kamerę";
+"camera.show" = "Pokaż kamerę";
+"camera.pin" = "Przypnij do pulpitu";
+"camera.show_hidden" = "Pokaż ukryte kamery";
+"camera.hide_hidden" = "Ukryj ukryte kamery";
+
+// MARK: - Layout
+"layout.2_columns" = "2 kolumny";
+"layout.4_columns" = "4 kolumny";
+"layout.single_row" = "Wszystkie w jednym rzędzie";
+
+// MARK: - Errors
+"error.invalid_url" = "Nieprawidłowy adres NVR";
+"error.invalid_response" = "Nieprawidłowa odpowiedź z NVR";
+"error.unauthorized" = "Nieprawidłowe dane logowania lub sesja wygasła.";
+"error.forbidden" = "Odmowa dostępu (403). Konto może być zablokowane lub IP zbanowane.";
+"error.rate_limited" = "Zbyt wiele zapytań. Poczekaj chwilę.";
+"error.http" = "Błąd HTTP: %d";
+"error.decoding" = "Nie udało się przetworzyć odpowiedzi NVR: %@";
+"error.connection_failed" = "Połączenie nie powiodło się: %@";
+
+// MARK: - Error Help
+"error.help.unauthorized" = "Sprawdź klucz API lub dane logowania. Dla klucza API wygeneruj nowy w UniFi OS Ustawienia > API Access.";
+"error.help.forbidden" = "Twoje konto może być tymczasowo zablokowane z powodu nieudanych prób logowania. Poczekaj kilka minut i spróbuj ponownie.";
+"error.help.connection" = "Upewnij się, że jesteś połączony z tą samą siecią co NVR i że adres jest poprawny.";
+
+// MARK: - Connection Status
+"status.connected" = "Połączono";
+"status.connecting" = "Łączenie...";
+"status.disconnected" = "Rozłączono";
+"status.error" = "Błąd";
+
+// MARK: - Test Results
+"test.success" = "Połączono! Znaleziono %d kamer.";
+"test.failed" = "Połączenie nie powiodło się";
+
+// MARK: - Menu
+"menu.settings" = "Ustawienia";
+"menu.quit" = "Zakończ";
+"menu.check_updates" = "Sprawdź aktualizacje";
