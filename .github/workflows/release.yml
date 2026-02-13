@@ -68,25 +68,27 @@ jobs:
           # Copy executable
           cp .build/release/ProtectBar build/ProtectBar.app/Contents/MacOS/
           
-          # Copy Info.plist
+          # Add Frameworks rpath so dyld can find bundled frameworks
+          install_name_tool -add_rpath @executable_path/../Frameworks build/ProtectBar.app/Contents/MacOS/ProtectBar
+          
+          # Copy Info.plist and fix variables
           cp ProtectBar/Info.plist build/ProtectBar.app/Contents/
+          VERSION="${{ steps.version.outputs.version }}"
+          sed -i '' 's/\$(EXECUTABLE_NAME)/ProtectBar/g' build/ProtectBar.app/Contents/Info.plist
+          sed -i '' 's/\$(PRODUCT_BUNDLE_IDENTIFIER)/com.corapoid.ProtectBar/g' build/ProtectBar.app/Contents/Info.plist
+          sed -i '' 's/\$(PRODUCT_NAME)/ProtectBar/g' build/ProtectBar.app/Contents/Info.plist
+          sed -i '' "s/\$(MARKETING_VERSION)/$VERSION/g" build/ProtectBar.app/Contents/Info.plist
+          sed -i '' 's/\$(CURRENT_PROJECT_VERSION)/1/g' build/ProtectBar.app/Contents/Info.plist
           
-          # Copy resources
-          if [ -d ".build/release/ProtectBar_ProtectBar.bundle" ]; then
-            cp -R .build/release/ProtectBar_ProtectBar.bundle/Contents/Resources/* build/ProtectBar.app/Contents/Resources/ 2>/dev/null || true
-          fi
+          # Copy resources (localizations)
+          cp -R ProtectBar/Resources/*.lproj build/ProtectBar.app/Contents/Resources/ 2>/dev/null || true
           
-          # Copy frameworks from build artifacts
-          for fw in .build/artifacts/mpvkit/MPVKit/*.framework; do
+          # Copy all frameworks from release build
+          for fw in .build/release/*.framework; do
             if [ -d "$fw" ]; then
               cp -R "$fw" build/ProtectBar.app/Contents/Frameworks/
             fi
           done
-          
-          # Copy Sparkle framework
-          if [ -d ".build/artifacts/sparkle/Sparkle/Sparkle.framework" ]; then
-            cp -R .build/artifacts/sparkle/Sparkle/Sparkle.framework build/ProtectBar.app/Contents/Frameworks/
-          fi
 
       - name: Package app
         working-directory: ${{ env.PROJECT_DIR }}
