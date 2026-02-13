@@ -30,7 +30,7 @@ struct CameraFeatureFlags: Codable, Sendable {
 
 // MARK: - Camera
 
-struct Camera: Codable, Identifiable, Sendable {
+struct Camera: Codable, Identifiable, Sendable, Equatable {
     let id: String
     let name: String
     let type: String
@@ -44,6 +44,10 @@ struct Camera: Codable, Identifiable, Sendable {
     let lastMotion: Int?
     let isMotionDetected: Bool?
     let marketName: String?
+    
+    static func == (lhs: Camera, rhs: Camera) -> Bool {
+        lhs.id == rhs.id
+    }
 
     /// Low quality channel (smallest resolution) for grid view
     var lowQualityChannel: CameraChannel? {

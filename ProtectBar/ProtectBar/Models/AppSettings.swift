@@ -44,7 +44,6 @@ final class AppSettings: ObservableObject {
     @AppStorage(AppConstants.UserDefaults.isConfigured) var isConfigured: Bool = false
     @AppStorage(AppConstants.UserDefaults.gridColumns) var gridColumns: Int = 2
     @AppStorage(AppConstants.UserDefaults.streamQuality) var streamQualityRaw: String = StreamQuality.low.rawValue
-    @AppStorage(AppConstants.UserDefaults.useAPIKey) var useAPIKey: Bool = true
     @AppStorage(AppConstants.UserDefaults.hiddenCameraIds) var hiddenCameraIdsData: Data = Data()
     @AppStorage("cameraOrder") var cameraOrderData: Data = Data()
     

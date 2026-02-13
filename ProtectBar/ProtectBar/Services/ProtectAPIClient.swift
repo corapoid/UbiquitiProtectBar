@@ -3,14 +3,6 @@ import os.log
 
 private let logger = Logger(subsystem: "com.protectbar.app", category: "API")
 
-/// Authentication method for UniFi Protect
-enum AuthMethod: String, CaseIterable, Identifiable {
-    case apiKey = "API Key"
-    case credentials = "Username/Password"
-    
-    var id: String { rawValue }
-}
-
 /// Client for UniFi Protect API (local connection)
 @MainActor
 final class ProtectAPIClient: ObservableObject {
@@ -30,9 +22,6 @@ final class ProtectAPIClient: ObservableObject {
 
     // MARK: - Private
 
-    private var apiKey: String?
-    private var apiKeyHeaderName: String?
-    private var apiKeyHeaderValue: String?
     private var csrfToken: String?
     private var authCookie: String?
     private let sslDelegate = SSLBypassDelegate()
@@ -61,84 +50,6 @@ final class ProtectAPIClient: ObservableObject {
     }
 
     // MARK: - Authentication
-
-    /// Authenticate using API Key (UniFi OS 3.0+)
-    /// Tries multiple header formats to find the one that works
-    func loginWithAPIKey(baseURL: String, apiKey: String) async throws {
-        connectionState = .connecting
-        
-        // Try different header formats for UniFi OS API Key
-        let headerFormats: [(name: String, value: String)] = [
-            ("Authorization", "Bearer \(apiKey)"),
-            ("X-API-KEY", apiKey),
-            ("x-api-key", apiKey),
-            ("Authorization", apiKey)
-        ]
-        
-        var lastError: Error = APIError.unauthorized
-        
-        for (headerName, headerValue) in headerFormats {
-            do {
-                print("Trying API Key auth with header: \(headerName)")
-                let data = try await apiKeyRequest(
-                    url: baseURL + AppConstants.API.bootstrapPath,
-                    method: "GET",
-                    headerName: headerName,
-                    headerValue: headerValue
-                )
-                
-                // Parse bootstrap to verify it worked
-                let decoder = JSONDecoder()
-                let bootstrap = try decoder.decode(BootstrapResponse.self, from: data)
-                
-                // Success! Store the working header format
-                self.apiKey = apiKey
-                self.apiKeyHeaderName = headerName
-                self.apiKeyHeaderValue = headerValue
-                
-                cameras = bootstrap.cameras.filter { $0.isConnected }
-                nvrInfo = bootstrap.nvr
-                
-                connectionState = .connected
-                print("API Key auth successful with header: \(headerName)")
-                return
-            } catch {
-                print("API Key auth failed with header \(headerName): \(error)")
-                lastError = error
-                continue
-            }
-        }
-        
-        // All formats failed
-        connectionState = .error(lastError.localizedDescription)
-        throw lastError
-    }
-    
-    /// Make a request with specific API key header
-    private func apiKeyRequest(url: String, method: String, headerName: String, headerValue: String) async throws -> Data {
-        guard let url = URL(string: url) else {
-            throw APIError.invalidURL
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = method
-        request.setValue(headerValue, forHTTPHeaderField: headerName)
-        
-        let (data, response) = try await session!.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
-        
-        guard (200...299).contains(httpResponse.statusCode) else {
-            if httpResponse.statusCode == 401 {
-                throw APIError.unauthorized
-            }
-            throw APIError.httpError(httpResponse.statusCode)
-        }
-        
-        return data
-    }
 
     /// Step 1: Fetch initial CSRF token from NVR
     private func fetchCSRFToken(baseURL: String) async throws {
@@ -285,21 +196,9 @@ final class ProtectAPIClient: ObservableObject {
         }
     }
 
-    func testConnectionWithAPIKey(baseURL: String, apiKey: String) async -> Result<Int, Error> {
-        do {
-            try await loginWithAPIKey(baseURL: baseURL, apiKey: apiKey)
-            return .success(cameras.count)
-        } catch {
-            return .failure(error)
-        }
-    }
-
     // MARK: - Disconnect
 
     func disconnect() {
-        apiKey = nil
-        apiKeyHeaderName = nil
-        apiKeyHeaderValue = nil
         csrfToken = nil
         authCookie = nil
         cameras = []
@@ -320,17 +219,12 @@ final class ProtectAPIClient: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = method
 
-        // API Key auth (preferred) - use saved header format
-        if let headerName = apiKeyHeaderName, let headerValue = apiKeyHeaderValue {
-            request.setValue(headerValue, forHTTPHeaderField: headerName)
-        } else {
-            // Cookie-based auth (fallback)
-            if let csrf = csrfToken {
-                request.setValue(csrf, forHTTPHeaderField: "X-CSRF-Token")
-            }
-            if let cookie = authCookie {
-                request.setValue(cookie, forHTTPHeaderField: "Cookie")
-            }
+        // Cookie-based auth
+        if let csrf = csrfToken {
+            request.setValue(csrf, forHTTPHeaderField: "X-CSRF-Token")
+        }
+        if let cookie = authCookie {
+            request.setValue(cookie, forHTTPHeaderField: "Cookie")
         }
 
         let (data, response) = try await session!.data(for: request)
@@ -339,8 +233,8 @@ final class ProtectAPIClient: ObservableObject {
             throw APIError.invalidResponse
         }
 
-        // Update CSRF token if provided (only for cookie auth)
-        if apiKey == nil, let updatedToken = httpResponse.value(forHTTPHeaderField: "X-Updated-CSRF-Token") {
+        // Update CSRF token if provided
+        if let updatedToken = httpResponse.value(forHTTPHeaderField: "X-Updated-CSRF-Token") {
             csrfToken = updatedToken
         }
 

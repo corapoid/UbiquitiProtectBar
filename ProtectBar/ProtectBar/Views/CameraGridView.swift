@@ -11,16 +11,16 @@ struct CameraGridView: View {
     
     @State private var showHiddenCameras = false
     @State private var draggingCamera: Camera?
+    @State private var orderedCameras: [Camera] = []
     
     private let cellWidth: CGFloat = 220
     private let cellHeight: CGFloat = 124
 
     private var visibleCameras: [Camera] {
-        let sorted = settings.sortedCameras(viewModel.cameras)
         if showHiddenCameras {
-            return sorted
+            return orderedCameras
         }
-        return sorted.filter { !settings.isCameraHidden($0.id) }
+        return orderedCameras.filter { !settings.isCameraHidden($0.id) }
     }
     
     private var columnCount: Int {
@@ -89,6 +89,12 @@ struct CameraGridView: View {
                 cameraGrid
             }
         }
+        .onAppear {
+            orderedCameras = settings.sortedCameras(viewModel.cameras)
+        }
+        .onChange(of: viewModel.cameras) { newCameras in
+            orderedCameras = settings.sortedCameras(newCameras)
+        }
     }
     
     private func gridButton(cols: Int, icon: String) -> some View {
@@ -125,7 +131,7 @@ struct CameraGridView: View {
                     }
                     .onDrop(of: [UTType.text], delegate: CameraDropDelegate(
                         camera: camera,
-                        cameras: visibleCameras,
+                        orderedCameras: $orderedCameras,
                         settings: settings,
                         draggingCamera: $draggingCamera
                     ))
@@ -198,11 +204,13 @@ struct CameraGridView: View {
 
 struct CameraDropDelegate: DropDelegate {
     let camera: Camera
-    let cameras: [Camera]
+    @Binding var orderedCameras: [Camera]
     let settings: AppSettings
     @Binding var draggingCamera: Camera?
     
     func performDrop(info: DropInfo) -> Bool {
+        // Save final order to settings
+        settings.cameraOrder = orderedCameras.map { $0.id }
         draggingCamera = nil
         return true
     }
@@ -211,15 +219,13 @@ struct CameraDropDelegate: DropDelegate {
         guard let dragging = draggingCamera,
               dragging.id != camera.id else { return }
         
-        // Reorder within the visible cameras list
-        guard var newOrder = Optional(cameras.map { $0.id }),
-              let sourceIndex = newOrder.firstIndex(of: dragging.id),
-              let targetIndex = newOrder.firstIndex(of: camera.id),
+        guard let sourceIndex = orderedCameras.firstIndex(where: { $0.id == dragging.id }),
+              let targetIndex = orderedCameras.firstIndex(where: { $0.id == camera.id }),
               sourceIndex != targetIndex else { return }
         
-        newOrder.remove(at: sourceIndex)
-        newOrder.insert(dragging.id, at: targetIndex)
-        settings.cameraOrder = newOrder
+        withAnimation(.easeInOut(duration: 0.2)) {
+            orderedCameras.move(fromOffsets: IndexSet(integer: sourceIndex), toOffset: targetIndex > sourceIndex ? targetIndex + 1 : targetIndex)
+        }
     }
     
     func dropUpdated(info: DropInfo) -> DropProposal? {

@@ -56,7 +56,6 @@ enum KeychainManager {
     private struct StoredCredentials: Codable {
         var username: String?
         var password: String?
-        var apiKey: String?
     }
     
     // MARK: - Read/Write
@@ -79,61 +78,10 @@ enum KeychainManager {
         try sealedBox.combined.write(to: credentialsURL)
     }
 
-    // MARK: - Public API (compatible with old interface)
-
-    static func save(key: String, value: String) throws {
-        var credentials = loadCredentialsFile()
-        
-        switch key {
-        case AppConstants.Keychain.usernameKey:
-            credentials.username = value
-        case AppConstants.Keychain.passwordKey:
-            credentials.password = value
-        case AppConstants.Keychain.apiKeyKey:
-            credentials.apiKey = value
-        default:
-            break
-        }
-        
-        try saveCredentialsFile(credentials)
-    }
-
-    static func read(key: String) -> String? {
-        let credentials = loadCredentialsFile()
-        
-        switch key {
-        case AppConstants.Keychain.usernameKey:
-            return credentials.username
-        case AppConstants.Keychain.passwordKey:
-            return credentials.password
-        case AppConstants.Keychain.apiKeyKey:
-            return credentials.apiKey
-        default:
-            return nil
-        }
-    }
-
-    static func delete(key: String) {
-        var credentials = loadCredentialsFile()
-        
-        switch key {
-        case AppConstants.Keychain.usernameKey:
-            credentials.username = nil
-        case AppConstants.Keychain.passwordKey:
-            credentials.password = nil
-        case AppConstants.Keychain.apiKeyKey:
-            credentials.apiKey = nil
-        default:
-            break
-        }
-        
-        try? saveCredentialsFile(credentials)
-    }
-
     // MARK: - Convenience
 
     static func saveCredentials(username: String, password: String) throws {
-        var credentials = loadCredentialsFile()
+        var credentials = StoredCredentials()
         credentials.username = username
         credentials.password = password
         try saveCredentialsFile(credentials)
@@ -149,27 +97,6 @@ enum KeychainManager {
     }
 
     static func deleteCredentials() {
-        var credentials = loadCredentialsFile()
-        credentials.username = nil
-        credentials.password = nil
-        try? saveCredentialsFile(credentials)
-    }
-
-    // MARK: - API Key
-
-    static func saveAPIKey(_ apiKey: String) throws {
-        var credentials = loadCredentialsFile()
-        credentials.apiKey = apiKey
-        try saveCredentialsFile(credentials)
-    }
-
-    static func loadAPIKey() -> String? {
-        return loadCredentialsFile().apiKey
-    }
-
-    static func deleteAPIKey() {
-        var credentials = loadCredentialsFile()
-        credentials.apiKey = nil
-        try? saveCredentialsFile(credentials)
+        try? FileManager.default.removeItem(at: credentialsURL)
     }
 }

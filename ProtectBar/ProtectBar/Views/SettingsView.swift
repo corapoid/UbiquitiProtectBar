@@ -7,15 +7,19 @@ struct SettingsView: View {
     var onDismiss: (() -> Void)?
 
     @State private var host: String = ""
-    @State private var authMethod: AuthMethod = .apiKey
-    @State private var apiKey: String = ""
     @State private var username: String = ""
     @State private var password: String = ""
     @State private var testResult: String?
     @State private var testSuccess: Bool = false
     @State private var isTesting: Bool = false
-    @State private var showSecret: Bool = false
+    @State private var showPassword: Bool = false
     @State private var saveError: String?
+    
+    private var appVersion: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+        return "v\(version) (\(build))"
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -66,64 +70,29 @@ struct SettingsView: View {
                             .font(.system(.body, design: .monospaced))
                     }
 
-                    // Authentication Method
+                    // Authentication
                     VStack(alignment: .leading, spacing: 6) {
                         Label(L10n.Settings.authentication, systemImage: "key")
                             .font(.subheadline)
                             .fontWeight(.medium)
 
-                        Picker("", selection: $authMethod) {
-                            ForEach(AuthMethod.allCases) { method in
-                                Text(method.rawValue).tag(method)
+                        TextField(L10n.Settings.username, text: $username)
+                            .textFieldStyle(.roundedBorder)
+
+                        HStack {
+                            if showPassword {
+                                TextField(L10n.Settings.password, text: $password)
+                                    .textFieldStyle(.roundedBorder)
+                            } else {
+                                SecureField(L10n.Settings.password, text: $password)
+                                    .textFieldStyle(.roundedBorder)
                             }
-                        }
-                        .pickerStyle(.segmented)
-                        .labelsHidden()
-
-                        if authMethod == .apiKey {
-                            // API Key input
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    if showSecret {
-                                        TextField(L10n.Settings.apiKey, text: $apiKey)
-                                            .textFieldStyle(.roundedBorder)
-                                            .font(.system(.caption, design: .monospaced))
-                                    } else {
-                                        SecureField(L10n.Settings.apiKey, text: $apiKey)
-                                            .textFieldStyle(.roundedBorder)
-                                    }
-                                    Button(action: { showSecret.toggle() }, label: {
-                                        Image(systemName: showSecret ? "eye.slash" : "eye")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    })
-                                    .buttonStyle(.plain)
-                                }
-
-                                Text(L10n.Settings.apiKeyHint)
-                                    .font(.caption2)
+                            Button(action: { showPassword.toggle() }, label: {
+                                Image(systemName: showPassword ? "eye.slash" : "eye")
+                                    .font(.caption)
                                     .foregroundColor(.secondary)
-                            }
-                        } else {
-                            // Username/Password
-                            TextField(L10n.Settings.username, text: $username)
-                                .textFieldStyle(.roundedBorder)
-
-                            HStack {
-                                if showSecret {
-                                    TextField(L10n.Settings.password, text: $password)
-                                        .textFieldStyle(.roundedBorder)
-                                } else {
-                                    SecureField(L10n.Settings.password, text: $password)
-                                        .textFieldStyle(.roundedBorder)
-                                }
-                                Button(action: { showSecret.toggle() }, label: {
-                                    Image(systemName: showSecret ? "eye.slash" : "eye")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                })
-                                .buttonStyle(.plain)
-                            }
+                            })
+                            .buttonStyle(.plain)
                         }
                     }
 
@@ -190,6 +159,17 @@ struct SettingsView: View {
                             .foregroundColor(.red)
                         }
                     }
+                    
+                    Divider()
+                    
+                    // App version
+                    HStack {
+                        Spacer()
+                        Text("ProtectBar \(appVersion)")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                    }
                 }
                 .padding(16)
             }
@@ -202,32 +182,16 @@ struct SettingsView: View {
     // MARK: - Computed
 
     private var isFormValid: Bool {
-        guard !host.isEmpty else { return false }
-
-        if authMethod == .apiKey {
-            return !apiKey.isEmpty
-        } else {
-            return !username.isEmpty && !password.isEmpty
-        }
+        !host.isEmpty && !username.isEmpty && !password.isEmpty
     }
 
     // MARK: - Actions
 
     private func loadCurrentSettings() {
         host = settings.normalizedHost
-        
-        // Respect the saved auth method preference
-        if settings.useAPIKey {
-            authMethod = .apiKey
-            if let key = KeychainManager.loadAPIKey() {
-                apiKey = key
-            }
-        } else {
-            authMethod = .credentials
-            if let creds = KeychainManager.loadCredentials() {
-                username = creds.username
-                password = creds.password
-            }
+        if let creds = KeychainManager.loadCredentials() {
+            username = creds.username
+            password = creds.password
         }
     }
 
@@ -238,20 +202,11 @@ struct SettingsView: View {
         let cleanHost = cleanHostInput(host)
 
         Task {
-            let result: (success: Bool, message: String)
-
-            if authMethod == .apiKey {
-                result = await connectionVM.testConnectionWithAPIKey(
-                    host: cleanHost,
-                    apiKey: apiKey
-                )
-            } else {
-                result = await connectionVM.testConnection(
-                    host: cleanHost,
-                    username: username,
-                    password: password
-                )
-            }
+            let result = await connectionVM.testConnection(
+                host: cleanHost,
+                username: username,
+                password: password
+            )
 
             testResult = result.message
             testSuccess = result.success
@@ -265,15 +220,7 @@ struct SettingsView: View {
         settings.hostAddress = cleanHost
 
         do {
-            if authMethod == .apiKey {
-                try KeychainManager.saveAPIKey(apiKey)
-                KeychainManager.deleteCredentials() // Clear old credentials
-                settings.useAPIKey = true
-            } else {
-                try KeychainManager.saveCredentials(username: username, password: password)
-                KeychainManager.deleteAPIKey() // Clear old API key
-                settings.useAPIKey = false
-            }
+            try KeychainManager.saveCredentials(username: username, password: password)
         } catch {
             saveError = L10n.Error.connectionFailed(error.localizedDescription)
             return
@@ -292,12 +239,9 @@ struct SettingsView: View {
     private func clearSettings() {
         connectionVM.disconnect()
         KeychainManager.deleteCredentials()
-        KeychainManager.deleteAPIKey()
         settings.hostAddress = ""
         settings.isConfigured = false
-        settings.useAPIKey = true
         host = ""
-        apiKey = ""
         username = ""
         password = ""
         testResult = nil

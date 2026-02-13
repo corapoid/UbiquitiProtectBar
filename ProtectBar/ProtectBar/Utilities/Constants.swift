@@ -25,7 +25,6 @@ enum AppConstants {
         static let service = "com.protectbar.credentials"
         static let usernameKey = "protect_username"
         static let passwordKey = "protect_password"
-        static let apiKeyKey = "protect_api_key"
     }
 
     enum UserDefaults {
@@ -35,7 +34,6 @@ enum AppConstants {
         static let gridColumns = "grid_columns"
         static let streamQuality = "stream_quality"
         static let refreshInterval = "refresh_interval"
-        static let useAPIKey = "use_api_key"
         static let hiddenCameraIds = "hidden_camera_ids"
     }
 }

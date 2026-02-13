@@ -35,32 +35,19 @@ final class ConnectionViewModel: ObservableObject {
         errorMessage = nil
 
         do {
-            if settings.useAPIKey {
-                guard let apiKey = KeychainManager.loadAPIKey() else {
-                    errorMessage = "No API key saved. Please configure in Settings."
-                    isConnecting = false
-                    return
-                }
-
-                try await apiClient.loginWithAPIKey(
-                    baseURL: settings.baseURL,
-                    apiKey: apiKey
-                )
-            } else {
-                guard let credentials = KeychainManager.loadCredentials() else {
-                    errorMessage = "No credentials saved. Please configure in Settings."
-                    isConnecting = false
-                    return
-                }
-
-                try await apiClient.login(
-                    baseURL: settings.baseURL,
-                    username: credentials.username,
-                    password: credentials.password
-                )
-
-                _ = try await apiClient.fetchBootstrap(baseURL: settings.baseURL)
+            guard let credentials = KeychainManager.loadCredentials() else {
+                errorMessage = "No credentials saved. Please configure in Settings."
+                isConnecting = false
+                return
             }
+
+            try await apiClient.login(
+                baseURL: settings.baseURL,
+                username: credentials.username,
+                password: credentials.password
+            )
+
+            _ = try await apiClient.fetchBootstrap(baseURL: settings.baseURL)
 
             cameraCount = apiClient.cameras.count
             isConnected = true
@@ -92,18 +79,6 @@ final class ConnectionViewModel: ObservableObject {
     func testConnection(host: String, username: String, password: String) async -> (success: Bool, message: String) {
         let baseURL = "https://\(host)"
         let result = await apiClient.testConnection(baseURL: baseURL, username: username, password: password)
-
-        switch result {
-        case .success(let count):
-            return (true, "Connected! Found \(count) camera(s).")
-        case .failure(let error):
-            return (false, error.localizedDescription)
-        }
-    }
-
-    func testConnectionWithAPIKey(host: String, apiKey: String) async -> (success: Bool, message: String) {
-        let baseURL = "https://\(host)"
-        let result = await apiClient.testConnectionWithAPIKey(baseURL: baseURL, apiKey: apiKey)
 
         switch result {
         case .success(let count):
