@@ -45,26 +45,47 @@ jobs:
 
       - name: Run tests
         working-directory: ${{ env.PROJECT_DIR }}
-        run: swift test
+        run: swift test -Xlinker -undefined -Xlinker dynamic_lookup
 
       - name: Build Release
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          xcodebuild -scheme ${{ env.SCHEME }} \
-            -configuration Release \
-            -destination 'platform=macOS' \
-            -derivedDataPath build \
-            -archivePath build/ProtectBar.xcarchive \
-            archive \
-            CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+          # Build release using swift build (handles SPM dependencies correctly)
+          swift build --configuration release -Xlinker -undefined -Xlinker dynamic_lookup
+          
+          # Create app bundle structure
+          mkdir -p build/ProtectBar.app/Contents/MacOS
+          mkdir -p build/ProtectBar.app/Contents/Resources
+          mkdir -p build/ProtectBar.app/Contents/Frameworks
+          
+          # Copy executable
+          cp .build/release/ProtectBar build/ProtectBar.app/Contents/MacOS/
+          
+          # Copy Info.plist
+          cp ProtectBar/Info.plist build/ProtectBar.app/Contents/
+          
+          # Copy resources
+          if [ -d ".build/release/ProtectBar_ProtectBar.bundle" ]; then
+            cp -R .build/release/ProtectBar_ProtectBar.bundle/Contents/Resources/* build/ProtectBar.app/Contents/Resources/ 2>/dev/null || true
+          fi
+          
+          # Copy frameworks from build artifacts
+          for fw in .build/artifacts/mpvkit/MPVKit/*.framework; do
+            if [ -d "$fw" ]; then
+              cp -R "$fw" build/ProtectBar.app/Contents/Frameworks/
+            fi
+          done
+          
+          # Copy Sparkle framework
+          if [ -d ".build/artifacts/sparkle/Sparkle/Sparkle.framework" ]; then
+            cp -R .build/artifacts/sparkle/Sparkle/Sparkle.framework build/ProtectBar.app/Contents/Frameworks/
+          fi
 
       - name: Package app
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
           mkdir -p dist dmg_contents
-          cp -R build/ProtectBar.xcarchive/Products/Applications/ProtectBar.app dist/
+          cp -R build/ProtectBar.app dist/
           cp -R dist/ProtectBar.app dmg_contents/
           ln -s /Applications dmg_contents/Applications
           hdiutil create -volname "ProtectBar" -srcfolder dmg_contents -ov -format UDZO "dist/ProtectBar-${{ steps.version.outputs.version }}.dmg"
@@ -78,9 +99,7 @@ jobs:
           ZIP_PATH="dist/ProtectBar-${{ steps.version.outputs.version }}.zip"
           SIGN_TOOL=".build/artifacts/sparkle/Sparkle/bin/sign_update"
           if [ -n "$SPARKLE_PRIVATE_KEY" ] && [ -f "$SIGN_TOOL" ]; then
-            echo "$SPARKLE_PRIVATE_KEY" > /tmp/key.txt
-            SIGNATURE=$("$SIGN_TOOL" "$ZIP_PATH" --ed-key-file /tmp/key.txt | grep edSignature | sed 's/.*"\(.*\)".*/\1/')
-            rm /tmp/key.txt
+            SIGNATURE=$("$SIGN_TOOL" "$ZIP_PATH" -s "$SPARKLE_PRIVATE_KEY" | grep edSignature | sed 's/.*"\(.*\)".*/\1/')
           else
             SIGNATURE="UNSIGNED"
           fi
