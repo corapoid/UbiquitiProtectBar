@@ -167,6 +167,56 @@ final class ProtectAPIClient: ObservableObject {
         let path = AppConstants.API.snapshotPath(cameraId: cameraId, width: width, height: height)
         return try await authenticatedRequest(url: baseURL + path, method: "GET")
     }
+    
+    // MARK: - Events
+    
+    /// Fetch motion events for a camera or all cameras
+    func fetchEvents(
+        baseURL: String,
+        cameraId: String? = nil,
+        start: Date? = nil,
+        end: Date? = nil,
+        types: [String] = ["motion", "smartDetectZone", "ring"],
+        limit: Int = 100
+    ) async throws -> [MotionEvent] {
+        var components = URLComponents(string: baseURL + "/proxy/protect/api/events")
+        var queryItems: [URLQueryItem] = [
+            URLQueryItem(name: "orderDirection", value: "DESC"),
+            URLQueryItem(name: "limit", value: String(limit))
+        ]
+        
+        if let cameraId {
+            queryItems.append(URLQueryItem(name: "cameras", value: cameraId))
+        }
+        
+        if let start {
+            queryItems.append(URLQueryItem(name: "start", value: String(Int(start.timeIntervalSince1970 * 1000))))
+        }
+        
+        if let end {
+            queryItems.append(URLQueryItem(name: "end", value: String(Int(end.timeIntervalSince1970 * 1000))))
+        }
+        
+        for type in types {
+            queryItems.append(URLQueryItem(name: "types", value: type))
+        }
+        
+        components?.queryItems = queryItems
+        
+        guard let url = components?.url?.absoluteString else {
+            throw APIError.invalidURL
+        }
+        
+        let data = try await authenticatedRequest(url: url, method: "GET")
+        let decoder = JSONDecoder()
+        return try decoder.decode([MotionEvent].self, from: data)
+    }
+    
+    /// Fetch event thumbnail
+    func fetchEventThumbnail(baseURL: String, thumbnailId: String, width: Int = 640, height: Int = 360) async throws -> Data {
+        let path = "/proxy/protect/api/thumbnails/\(thumbnailId)?w=\(width)&h=\(height)"
+        return try await authenticatedRequest(url: baseURL + path, method: "GET")
+    }
 
     // MARK: - RTSP URL Builder
 

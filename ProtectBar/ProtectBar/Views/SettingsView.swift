@@ -1,9 +1,11 @@
 import SwiftUI
+import Sparkle
 
 /// Settings view for configuring NVR connection
 struct SettingsView: View {
     @ObservedObject var settings: AppSettings
     @ObservedObject var connectionVM: ConnectionViewModel
+    var updater: SPUUpdater?
     var onDismiss: (() -> Void)?
 
     @State private var host: String = ""
@@ -162,14 +164,25 @@ struct SettingsView: View {
                     
                     Divider()
                     
-                    // App version
-                    HStack {
-                        Spacer()
+                    // App version & updates
+                    VStack(spacing: 8) {
                         Text("ProtectBar \(appVersion)")
                             .font(.caption2)
                             .foregroundColor(.secondary)
-                        Spacer()
+                        
+                        if let updater {
+                            Button(
+                                action: { updater.checkForUpdates() },
+                                label: {
+                                    Label(L10n.Menu.checkForUpdates, systemImage: "arrow.triangle.2.circlepath")
+                                        .font(.caption)
+                                }
+                            )
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
                     }
+                    .frame(maxWidth: .infinity)
                 }
                 .padding(16)
             }

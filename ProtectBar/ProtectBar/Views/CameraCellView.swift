@@ -74,20 +74,25 @@ struct CameraCellView: View {
             // Status indicators
             VStack {
                 HStack {
-                    // Motion indicator
-                    if isMotionDetected {
-                        HStack(spacing: 3) {
-                            Circle()
-                                .fill(Color.red)
-                                .frame(width: 6, height: 6)
-                            Text("MOTION")
-                                .font(.system(size: 8, weight: .bold))
-                                .foregroundColor(.red)
-                        }
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 2)
-                        .background(Color.black.opacity(0.7))
-                        .cornerRadius(4)
+                    // Doorbell indicator
+                    if camera.isDoorbell {
+                        Image(systemName: "bell.fill")
+                            .font(.system(size: 8))
+                            .foregroundColor(.yellow)
+                            .padding(4)
+                            .background(Color.black.opacity(0.7))
+                            .cornerRadius(4)
+                    }
+                    
+                    // Last smart detection time (not motion)
+                    if let lastDetect = camera.lastSmartDetectDate {
+                        Text(formatTimeAgo(lastDetect))
+                            .font(.system(size: 8, weight: .medium))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 3)
+                            .background(Color.green.opacity(0.8))
+                            .cornerRadius(4)
                     }
 
                     Spacer()
@@ -111,6 +116,19 @@ struct CameraCellView: View {
         }
         .onTapGesture {
             onTap()
+        }
+    }
+    
+    private func formatTimeAgo(_ date: Date) -> String {
+        let interval = Date().timeIntervalSince(date)
+        if interval < 60 {
+            return "\(Int(interval))s"
+        } else if interval < 3600 {
+            return "\(Int(interval / 60))m"
+        } else if interval < 86400 {
+            return "\(Int(interval / 3600))h"
+        } else {
+            return "\(Int(interval / 86400))d"
         }
     }
 }

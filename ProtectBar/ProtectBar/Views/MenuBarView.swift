@@ -16,10 +16,12 @@ struct MenuBarView: View {
     let isMenuVisible: Bool
 
     @State private var showSettings = false
+    @State private var showEvents = false
     @State private var currentTab: Tab = .cameras
 
     enum Tab {
         case cameras
+        case events
         case settings
         case expandedCamera
     }
@@ -28,6 +30,8 @@ struct MenuBarView: View {
         VStack(spacing: 0) {
             if !settings.isConfigured || showSettings {
                 settingsContent
+            } else if showEvents {
+                eventsContent
             } else if let camera = gridVM.selectedCamera {
                 expandedCameraContent(camera)
             } else {
@@ -151,8 +155,42 @@ struct MenuBarView: View {
         SettingsView(
             settings: settings,
             connectionVM: connectionVM,
+            updater: updater,
             onDismiss: { showSettings = false }
         )
+    }
+    
+    // MARK: - Events Content
+    
+    private var eventsContent: some View {
+        VStack(spacing: 0) {
+            // Back button header
+            HStack {
+                Button(
+                    action: { showEvents = false },
+                    label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                            Text("Back")
+                        }
+                        .font(.caption)
+                    }
+                )
+                .buttonStyle(.plain)
+                
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            
+            Divider()
+            
+            EventsView(
+                settings: settings,
+                apiClient: apiClient,
+                cameras: gridVM.cameras
+            )
+        }
     }
 
     // MARK: - Expanded Camera
@@ -182,15 +220,18 @@ struct MenuBarView: View {
                     .foregroundColor(.secondary)
             })
             .buttonStyle(.plain)
+            .help("Settings")
             
-            // Check for updates button
-            Button(action: { updater.checkForUpdates() }, label: {
-                Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            })
-            .buttonStyle(.plain)
-            .help(L10n.Menu.checkForUpdates)
+            // Events button
+            if settings.isConfigured && connectionVM.isConnected {
+                Button(action: { showEvents.toggle() }, label: {
+                    Image(systemName: "bell")
+                        .font(.caption)
+                        .foregroundColor(showEvents ? .accentColor : .secondary)
+                })
+                .buttonStyle(.plain)
+                .help("Recent Events")
+            }
 
             if connectionVM.isConnected {
                 Circle()

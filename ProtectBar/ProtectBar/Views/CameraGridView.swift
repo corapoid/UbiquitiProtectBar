@@ -1,5 +1,4 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 /// Grid view showing all cameras in a responsive layout
 struct CameraGridView: View {
@@ -10,17 +9,16 @@ struct CameraGridView: View {
     let onPinCamera: (Camera) -> Void
     
     @State private var showHiddenCameras = false
-    @State private var draggingCamera: Camera?
-    @State private var orderedCameras: [Camera] = []
     
     private let cellWidth: CGFloat = 220
     private let cellHeight: CGFloat = 124
 
     private var visibleCameras: [Camera] {
+        let sorted = settings.sortedCameras(viewModel.cameras)
         if showHiddenCameras {
-            return orderedCameras
+            return sorted
         }
-        return orderedCameras.filter { !settings.isCameraHidden($0.id) }
+        return sorted.filter { !settings.isCameraHidden($0.id) }
     }
     
     private var columnCount: Int {
@@ -89,12 +87,6 @@ struct CameraGridView: View {
                 cameraGrid
             }
         }
-        .onAppear {
-            orderedCameras = settings.sortedCameras(viewModel.cameras)
-        }
-        .onChange(of: viewModel.cameras) { newCameras in
-            orderedCameras = settings.sortedCameras(newCameras)
-        }
     }
     
     private func gridButton(cols: Int, icon: String) -> some View {
@@ -123,18 +115,7 @@ struct CameraGridView: View {
                         onPin: { onPinCamera(camera) }
                     )
                     .frame(width: cellWidth, height: cellHeight)
-                    .opacity(dragOpacity(for: camera))
-                    .scaleEffect(draggingCamera?.id == camera.id ? 1.05 : 1.0)
-                    .onDrag {
-                        draggingCamera = camera
-                        return NSItemProvider(object: camera.id as NSString)
-                    }
-                    .onDrop(of: [UTType.text], delegate: CameraDropDelegate(
-                        camera: camera,
-                        orderedCameras: $orderedCameras,
-                        settings: settings,
-                        draggingCamera: $draggingCamera
-                    ))
+                    .opacity(settings.isCameraHidden(camera.id) ? 0.5 : 1.0)
                     .contextMenu {
                         Button(action: { settings.toggleCameraHidden(camera.id) }, label: {
                             Label(
@@ -146,18 +127,10 @@ struct CameraGridView: View {
                             Label("Pin to Desktop", systemImage: "pin")
                         })
                     }
-                    .animation(.easeInOut(duration: 0.2), value: draggingCamera?.id)
                 }
             }
             .padding(4)
         }
-    }
-    
-    private func dragOpacity(for camera: Camera) -> Double {
-        if let dragging = draggingCamera, dragging.id == camera.id {
-            return 0.5
-        }
-        return settings.isCameraHidden(camera.id) ? 0.5 : 1.0
     }
 
     // MARK: - States
@@ -197,42 +170,5 @@ struct CameraGridView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(40)
-    }
-}
-
-// MARK: - Drop Delegate
-
-struct CameraDropDelegate: DropDelegate {
-    let camera: Camera
-    @Binding var orderedCameras: [Camera]
-    let settings: AppSettings
-    @Binding var draggingCamera: Camera?
-    
-    func performDrop(info: DropInfo) -> Bool {
-        // Save final order to settings
-        settings.cameraOrder = orderedCameras.map { $0.id }
-        draggingCamera = nil
-        return true
-    }
-    
-    func dropEntered(info: DropInfo) {
-        guard let dragging = draggingCamera,
-              dragging.id != camera.id else { return }
-        
-        guard let sourceIndex = orderedCameras.firstIndex(where: { $0.id == dragging.id }),
-              let targetIndex = orderedCameras.firstIndex(where: { $0.id == camera.id }),
-              sourceIndex != targetIndex else { return }
-        
-        withAnimation(.easeInOut(duration: 0.2)) {
-            orderedCameras.move(fromOffsets: IndexSet(integer: sourceIndex), toOffset: targetIndex > sourceIndex ? targetIndex + 1 : targetIndex)
-        }
-    }
-    
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        DropProposal(operation: .move)
-    }
-    
-    func dropExited(info: DropInfo) {
-        // No action needed
     }
 }
