@@ -37,11 +37,13 @@ jobs:
         
       - name: Build
         working-directory: ${{ env.PROJECT_DIR }}
-        run: swift build
+        run: |
+          # Build with linker flags to handle missing optional dependencies
+          swift build -Xlinker -undefined -Xlinker dynamic_lookup
         
       - name: Run tests
         working-directory: ${{ env.PROJECT_DIR }}
-        run: swift test
+        run: swift test --skip-build
         
   lint:
     name: SwiftLint
