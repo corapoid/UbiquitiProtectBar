@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Grid view showing all cameras in a responsive layout
 struct CameraGridView: View {
@@ -8,15 +9,17 @@ struct CameraGridView: View {
     let onPinCamera: (Camera) -> Void
     
     @State private var showHiddenCameras = false
+    @State private var draggingCamera: Camera?
     
     private let cellWidth: CGFloat = 220
     private let cellHeight: CGFloat = 124
 
     private var visibleCameras: [Camera] {
+        let sorted = settings.sortedCameras(viewModel.cameras)
         if showHiddenCameras {
-            return viewModel.cameras
+            return sorted
         }
-        return viewModel.cameras.filter { !settings.isCameraHidden($0.id) }
+        return sorted.filter { !settings.isCameraHidden($0.id) }
     }
     
     private var columnCount: Int {
@@ -112,7 +115,18 @@ struct CameraGridView: View {
                         onPin: { onPinCamera(camera) }
                     )
                     .frame(width: cellWidth, height: cellHeight)
-                    .opacity(settings.isCameraHidden(camera.id) ? 0.5 : 1.0)
+                    .opacity(dragOpacity(for: camera))
+                    .scaleEffect(draggingCamera?.id == camera.id ? 1.05 : 1.0)
+                    .onDrag {
+                        draggingCamera = camera
+                        return NSItemProvider(object: camera.id as NSString)
+                    }
+                    .onDrop(of: [UTType.text], delegate: CameraDropDelegate(
+                        camera: camera,
+                        viewModel: viewModel,
+                        settings: settings,
+                        draggingCamera: $draggingCamera
+                    ))
                     .contextMenu {
                         Button(action: { settings.toggleCameraHidden(camera.id) }, label: {
                             Label(
@@ -124,10 +138,18 @@ struct CameraGridView: View {
                             Label("Pin to Desktop", systemImage: "pin")
                         })
                     }
+                    .animation(.easeInOut(duration: 0.2), value: draggingCamera?.id)
                 }
             }
             .padding(4)
         }
+    }
+    
+    private func dragOpacity(for camera: Camera) -> Double {
+        if let dragging = draggingCamera, dragging.id == camera.id {
+            return 0.5
+        }
+        return settings.isCameraHidden(camera.id) ? 0.5 : 1.0
     }
 
     // MARK: - States
@@ -167,5 +189,34 @@ struct CameraGridView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(40)
+    }
+}
+
+// MARK: - Drop Delegate
+
+struct CameraDropDelegate: DropDelegate {
+    let camera: Camera
+    let viewModel: CameraGridViewModel
+    let settings: AppSettings
+    @Binding var draggingCamera: Camera?
+    
+    func performDrop(info: DropInfo) -> Bool {
+        draggingCamera = nil
+        return true
+    }
+    
+    func dropEntered(info: DropInfo) {
+        guard let dragging = draggingCamera,
+              dragging.id != camera.id else { return }
+        
+        viewModel.reorderCamera(dragging, toPosition: camera, settings: settings)
+    }
+    
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+    
+    func dropExited(info: DropInfo) {
+        // No action needed
     }
 }

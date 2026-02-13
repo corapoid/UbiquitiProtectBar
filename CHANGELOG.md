@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Drag and drop camera reordering in grid view
+- Camera order persistence across app restarts
+
 ## [1.0.0] - 2026-02-13
 
 ### Added

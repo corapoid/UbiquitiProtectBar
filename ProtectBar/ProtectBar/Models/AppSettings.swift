@@ -46,6 +46,7 @@ final class AppSettings: ObservableObject {
     @AppStorage(AppConstants.UserDefaults.streamQuality) var streamQualityRaw: String = StreamQuality.low.rawValue
     @AppStorage(AppConstants.UserDefaults.useAPIKey) var useAPIKey: Bool = true
     @AppStorage(AppConstants.UserDefaults.hiddenCameraIds) var hiddenCameraIdsData: Data = Data()
+    @AppStorage("cameraOrder") var cameraOrderData: Data = Data()
     
     var hiddenCameraIds: Set<String> {
         get {
@@ -53,6 +54,15 @@ final class AppSettings: ObservableObject {
         }
         set {
             hiddenCameraIdsData = (try? JSONEncoder().encode(newValue)) ?? Data()
+        }
+    }
+    
+    var cameraOrder: [String] {
+        get {
+            (try? JSONDecoder().decode([String].self, from: cameraOrderData)) ?? []
+        }
+        set {
+            cameraOrderData = (try? JSONEncoder().encode(newValue)) ?? Data()
         }
     }
     
@@ -68,6 +78,24 @@ final class AppSettings: ObservableObject {
     
     func isCameraHidden(_ cameraId: String) -> Bool {
         hiddenCameraIds.contains(cameraId)
+    }
+    
+    func updateCameraOrder(_ cameras: [Camera]) {
+        cameraOrder = cameras.map { $0.id }
+    }
+    
+    func sortedCameras(_ cameras: [Camera]) -> [Camera] {
+        let order = cameraOrder
+        if order.isEmpty {
+            return cameras
+        }
+        
+        let orderMap = Dictionary(uniqueKeysWithValues: order.enumerated().map { ($1, $0) })
+        return cameras.sorted { cam1, cam2 in
+            let idx1 = orderMap[cam1.id] ?? Int.max
+            let idx2 = orderMap[cam2.id] ?? Int.max
+            return idx1 < idx2
+        }
     }
 
     var connectionType: ConnectionType {
