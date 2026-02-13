@@ -43,7 +43,7 @@ jobs:
         
       - name: Run tests
         working-directory: ${{ env.PROJECT_DIR }}
-        run: swift test --skip-build
+        run: swift test -Xlinker -undefined -Xlinker dynamic_lookup
         
   lint:
     name: SwiftLint
