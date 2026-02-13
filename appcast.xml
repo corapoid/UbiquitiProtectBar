@@ -7,6 +7,7 @@
     <language>en</language>
     
     <!-- ITEMS -->
+    <item><title>Version 1.0.2</title><pubDate>Fri, 13 Feb 2026 22:13:04 +0000</pubDate><sparkle:version>1.0.2</sparkle:version><sparkle:shortVersionString>1.0.2</sparkle:shortVersionString><sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion><enclosure url="https://github.com/corapoid/UbiquitiProtectBar/releases/download/v1.0.2/ProtectBar-1.0.2.zip" type="application/octet-stream" sparkle:edSignature="" length="15129189"/></item>
     <item><title>Version 1.0.1</title><pubDate>Fri, 13 Feb 2026 22:11:18 +0000</pubDate><sparkle:version>1.0.1</sparkle:version><sparkle:shortVersionString>1.0.1</sparkle:shortVersionString><sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion><enclosure url="https://github.com/corapoid/UbiquitiProtectBar/releases/download/v1.0.1/ProtectBar-1.0.1.zip" type="application/octet-stream" sparkle:edSignature="" length="15124356"/></item>
     <item><title>Version 1.0.0</title><pubDate>Fri, 13 Feb 2026 21:10:18 +0000</pubDate><sparkle:version>1.0.0</sparkle:version><sparkle:shortVersionString>1.0.0</sparkle:shortVersionString><sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion><enclosure url="https://github.com/corapoid/UbiquitiProtectBar/releases/download/v1.0.0/ProtectBar-1.0.0.zip" type="application/octet-stream" sparkle:edSignature="UNSIGNED" length="15099069"/></item>
   </channel>
