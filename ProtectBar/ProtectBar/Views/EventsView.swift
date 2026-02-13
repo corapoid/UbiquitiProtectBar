@@ -6,6 +6,7 @@ struct EventsView: View {
     @ObservedObject var settings: AppSettings
     let apiClient: ProtectAPIClient
     let cameras: [Camera]
+    var onPlayEvent: ((Camera, Date) -> Void)?
     
     @State private var events: [MotionEvent] = []
     @State private var isLoading = false
@@ -100,7 +101,14 @@ struct EventsView: View {
                         isSelected: selectedEventId == event.id,
                         dateFormatter: dateFormatter,
                         relativeFormatter: relativeFormatter,
-                        onTap: { selectedEventId = event.id }
+                        onTap: {
+                            selectedEventId = event.id
+                        },
+                        onPlayback: {
+                            if let camera = cameras.first(where: { $0.id == event.camera }) {
+                                onPlayEvent?(camera, event.startDate)
+                            }
+                        }
                     )
                     .onAppear {
                         Task { await loadThumbnail(for: event) }
@@ -204,10 +212,11 @@ struct EventRow: View {
     let dateFormatter: DateFormatter
     let relativeFormatter: RelativeDateTimeFormatter
     let onTap: () -> Void
+    let onPlayback: () -> Void
     
     var body: some View {
         HStack(spacing: 12) {
-            // Thumbnail or placeholder
+            // Thumbnail or placeholder (tappable for playback)
             Group {
                 if let thumbnail {
                     Image(nsImage: thumbnail)
@@ -224,6 +233,16 @@ struct EventRow: View {
             }
             .frame(width: 80, height: 45)
             .cornerRadius(6)
+            .overlay(
+                // Play button overlay
+                Image(systemName: "play.circle.fill")
+                    .font(.title2)
+                    .foregroundColor(.white)
+                    .shadow(radius: 2)
+            )
+            .onTapGesture {
+                onPlayback()
+            }
             
             // Event info
             VStack(alignment: .leading, spacing: 4) {

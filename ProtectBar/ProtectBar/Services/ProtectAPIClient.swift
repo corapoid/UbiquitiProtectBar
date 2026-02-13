@@ -217,6 +217,46 @@ final class ProtectAPIClient: ObservableObject {
         let path = "/proxy/protect/api/thumbnails/\(thumbnailId)?w=\(width)&h=\(height)"
         return try await authenticatedRequest(url: baseURL + path, method: "GET")
     }
+    
+    // MARK: - Video Export (Playback)
+    
+    /// Export video recording as MP4 for playback
+    /// - Parameters:
+    ///   - baseURL: NVR base URL
+    ///   - cameraId: Camera ID
+    ///   - start: Start time
+    ///   - end: End time
+    ///   - channel: Video channel (0=high, 1=medium, 2=low)
+    /// - Returns: URL to the exported video (remote endpoint for streaming)
+    func videoExportURL(baseURL: String, cameraId: String, start: Date, end: Date, channel: Int = 1) -> URL? {
+        var components = URLComponents(string: baseURL + "/proxy/protect/api/video/export")
+        components?.queryItems = [
+            URLQueryItem(name: "camera", value: cameraId),
+            URLQueryItem(name: "channel", value: String(channel)),
+            URLQueryItem(name: "start", value: String(Int(start.timeIntervalSince1970 * 1000))),
+            URLQueryItem(name: "end", value: String(Int(end.timeIntervalSince1970 * 1000)))
+        ]
+        return components?.url
+    }
+    
+    /// Build authenticated URL for video export (adds auth headers)
+    func authenticatedVideoExportRequest(baseURL: String, cameraId: String, start: Date, end: Date, channel: Int = 1) -> URLRequest? {
+        guard let url = videoExportURL(baseURL: baseURL, cameraId: cameraId, start: start, end: end, channel: channel) else {
+            return nil
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        
+        if let csrf = csrfToken {
+            request.setValue(csrf, forHTTPHeaderField: "X-CSRF-Token")
+        }
+        if let cookie = authCookie {
+            request.setValue(cookie, forHTTPHeaderField: "Cookie")
+        }
+        
+        return request
+    }
 
     // MARK: - RTSP URL Builder
 

@@ -18,6 +18,8 @@ struct MenuBarView: View {
     @State private var showSettings = false
     @State private var showEvents = false
     @State private var currentTab: Tab = .cameras
+    @State private var eventPlaybackTime: Date?
+    @State private var eventPlaybackCamera: Camera?
 
     enum Tab {
         case cameras
@@ -30,10 +32,30 @@ struct MenuBarView: View {
         VStack(spacing: 0) {
             if !settings.isConfigured || showSettings {
                 settingsContent
+            } else if let camera = eventPlaybackCamera, let time = eventPlaybackTime {
+                // Event playback mode
+                CameraDetailView(
+                    camera: camera,
+                    rtspURL: gridVM.rtspURL(for: camera, settings: settings),
+                    apiClient: apiClient,
+                    baseURL: settings.baseURL,
+                    onClose: {
+                        eventPlaybackCamera = nil
+                        eventPlaybackTime = nil
+                    },
+                    initialPlaybackTime: time
+                )
             } else if showEvents {
                 eventsContent
             } else if let camera = gridVM.selectedCamera {
-                expandedCameraContent(camera)
+                // Camera detail view with timeline
+                CameraDetailView(
+                    camera: camera,
+                    rtspURL: gridVM.rtspURL(for: camera, settings: settings),
+                    apiClient: apiClient,
+                    baseURL: settings.baseURL,
+                    onClose: { gridVM.clearSelection() }
+                )
             } else {
                 mainContent
             }
@@ -188,25 +210,14 @@ struct MenuBarView: View {
             EventsView(
                 settings: settings,
                 apiClient: apiClient,
-                cameras: gridVM.cameras
+                cameras: gridVM.cameras,
+                onPlayEvent: { camera, time in
+                    eventPlaybackCamera = camera
+                    eventPlaybackTime = time
+                    showEvents = false
+                }
             )
         }
-    }
-
-    // MARK: - Expanded Camera
-
-    private func expandedCameraContent(_ camera: Camera) -> some View {
-        PinnedWindowView(
-            camera: camera,
-            rtspURL: gridVM.rtspURL(for: camera, settings: settings),
-            apiClient: apiClient,
-            baseURL: settings.baseURL,
-            onClose: { gridVM.clearSelection() },
-            onPin: {
-                pinCamera(camera)
-                gridVM.clearSelection()
-            }
-        )
     }
 
     // MARK: - Footer
