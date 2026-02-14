@@ -12,7 +12,6 @@ on:
 
 env:
   SCHEME: ProtectBar
-  PROJECT_DIR: ProtectBar
 
 jobs:
   build:
@@ -47,15 +46,12 @@ jobs:
           echo "Version: $VERSION"
 
       - name: Resolve dependencies
-        working-directory: ${{ env.PROJECT_DIR }}
         run: swift package resolve
 
       - name: Run tests
-        working-directory: ${{ env.PROJECT_DIR }}
         run: swift test -Xlinker -undefined -Xlinker dynamic_lookup
 
       - name: Build Release
-        working-directory: ${{ env.PROJECT_DIR }}
         run: |
           # Build release using swift build (handles SPM dependencies correctly)
           swift build --configuration release -Xlinker -undefined -Xlinker dynamic_lookup
@@ -91,7 +87,6 @@ jobs:
           done
 
       - name: Package app
-        working-directory: ${{ env.PROJECT_DIR }}
         run: |
           mkdir -p dist dmg_contents
           cp -R build/ProtectBar.app dist/
@@ -101,7 +96,6 @@ jobs:
           cd dist && ditto -c -k --sequesterRsrc --keepParent ProtectBar.app "ProtectBar-${{ steps.version.outputs.version }}.zip"
 
       - name: Sign ZIP for Sparkle
-        working-directory: ${{ env.PROJECT_DIR }}
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
@@ -115,7 +109,6 @@ jobs:
           echo "$SIGNATURE" > dist/signature.txt
 
       - name: Generate appcast item
-        working-directory: ${{ env.PROJECT_DIR }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           ZIP_PATH="dist/ProtectBar-$VERSION.zip"
@@ -130,9 +123,9 @@ jobs:
         with:
           name: ProtectBar-${{ steps.version.outputs.version }}
           path: |
-            ${{ env.PROJECT_DIR }}/dist/*.dmg
-            ${{ env.PROJECT_DIR }}/dist/*.zip
-            ${{ env.PROJECT_DIR }}/dist/appcast-item.xml
+            dist/*.dmg
+            dist/*.zip
+            dist/appcast-item.xml
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -140,8 +133,8 @@ jobs:
           tag_name: v${{ steps.version.outputs.version }}
           name: v${{ steps.version.outputs.version }}
           files: |
-            ${{ env.PROJECT_DIR }}/dist/*.dmg
-            ${{ env.PROJECT_DIR }}/dist/*.zip
+            dist/*.dmg
+            dist/*.zip
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

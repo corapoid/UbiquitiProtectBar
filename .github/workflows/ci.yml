@@ -12,7 +12,7 @@ on:
     branches: [main]
 
 env:
-  PROJECT_DIR: ProtectBar
+  PROJECT_DIR: .
 
 jobs:
   build-and-test:
@@ -31,23 +31,20 @@ jobs:
       - name: Cache Swift packages
         uses: actions/cache@v4
         with:
-          path: ${{ env.PROJECT_DIR }}/.build
+          path: .build
           key: ${{ runner.os }}-swift-${{ hashFiles('**/Package.resolved') }}
           restore-keys: |
             ${{ runner.os }}-swift-
             
       - name: Resolve dependencies
-        working-directory: ${{ env.PROJECT_DIR }}
         run: swift package resolve
         
       - name: Build
-        working-directory: ${{ env.PROJECT_DIR }}
         run: |
           # Build with linker flags to handle missing optional dependencies
           swift build -Xlinker -undefined -Xlinker dynamic_lookup
         
       - name: Run tests
-        working-directory: ${{ env.PROJECT_DIR }}
         run: swift test -Xlinker -undefined -Xlinker dynamic_lookup
         
   lint:
@@ -62,7 +59,6 @@ jobs:
         run: brew install swiftlint
         
       - name: Run SwiftLint
-        working-directory: ${{ env.PROJECT_DIR }}
         run: swiftlint lint --strict
 
   tag-and-release:
