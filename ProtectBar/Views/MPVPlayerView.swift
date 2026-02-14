@@ -20,7 +20,10 @@ final class MPVMetalView: MTKView {
     private var videoHeight: Int32 = 0
     
     private var isShuttingDown = false
+    private var hasBeenShutDown = false
     private let renderLock = NSLock()
+    private var retainCount_wakeup = false  // Track if we did passRetained for wakeup callback
+    private var retainCount_render = false  // Track if we did passRetained for render callback
     
     var onStateChange: ((RTSPStreamManager.StreamState) -> Void)?
     
@@ -126,7 +129,9 @@ final class MPVMetalView: MTKView {
     // MARK: - MPV Setup
     
     func setup(rtspURL: String) {
+        guard !hasBeenShutDown else { return }
         setupMPV()
+        guard mpv != nil else { return }
         setupMPVSoftwareRender()
         loadURL(rtspURL)
     }
@@ -181,14 +186,17 @@ final class MPVMetalView: MTKView {
         mpv_observe_property(mpv, 3, "width", MPV_FORMAT_INT64)
         mpv_observe_property(mpv, 4, "height", MPV_FORMAT_INT64)
         
-        // Set event callback
+        // Set event callback - use passRetained to prevent use-after-free
+        let wakeupCtx = Unmanaged.passRetained(self).toOpaque()
+        retainCount_wakeup = true
         mpv_set_wakeup_callback(mpv, { ctx in
             guard let ctx else { return }
             let view = Unmanaged<MPVMetalView>.fromOpaque(ctx).takeUnretainedValue()
-            DispatchQueue.main.async {
-                view.handleMPVEvents()
+            guard !view.isShuttingDown else { return }
+            DispatchQueue.main.async { [weak view] in
+                view?.handleMPVEvents()
             }
-        }, Unmanaged.passUnretained(self).toOpaque())
+        }, wakeupCtx)
     }
     
     private func setupMPVSoftwareRender() {
@@ -222,20 +230,23 @@ final class MPVMetalView: MTKView {
         
         mpvRenderContext = ctx
         
-        // Set update callback to trigger redraws
+        // Set update callback to trigger redraws - use passRetained to prevent use-after-free
+        let renderCtxPtr = Unmanaged.passRetained(self).toOpaque()
+        retainCount_render = true
         mpv_render_context_set_update_callback(ctx, { ctx in
             guard let ctx else { return }
             let view = Unmanaged<MPVMetalView>.fromOpaque(ctx).takeUnretainedValue()
-            DispatchQueue.main.async {
-                view.renderFrame()
+            guard !view.isShuttingDown else { return }
+            DispatchQueue.main.async { [weak view] in
+                view?.renderFrame()
             }
-        }, Unmanaged.passUnretained(self).toOpaque())
+        }, renderCtxPtr)
     }
     
     // MARK: - Rendering
     
     private func renderFrame() {
-        guard !isShuttingDown else { return }
+        guard !isShuttingDown, !hasBeenShutDown else { return }
         
         renderLock.lock()
         defer { renderLock.unlock() }
@@ -261,21 +272,30 @@ final class MPVMetalView: MTKView {
         videoHeight = height
         
         // Render mpv frame to pixel buffer
-        var size: [Int32] = [width, height]
+        // Use stable allocations for render params to avoid dangling pointers
+        let sizePtr = UnsafeMutablePointer<Int32>.allocate(capacity: 2)
+        sizePtr[0] = width
+        sizePtr[1] = height
+        defer { sizePtr.deallocate() }
+        
+        let formatPtr = strdup("bgra")
+        defer { free(formatPtr) }
+        
+        let stridePtr = UnsafeMutablePointer<Int>.allocate(capacity: 1)
+        stridePtr.pointee = Int(width) * 4
+        defer { stridePtr.deallocate() }
+        
         var sizeParam = mpv_render_param()
         sizeParam.type = MPV_RENDER_PARAM_SW_SIZE
-        sizeParam.data = withUnsafeMutablePointer(to: &size[0]) { UnsafeMutableRawPointer($0) }
+        sizeParam.data = UnsafeMutableRawPointer(sizePtr)
         
-        let format = strdup("bgra")
-        defer { free(format) }
         var formatParam = mpv_render_param()
         formatParam.type = MPV_RENDER_PARAM_SW_FORMAT
-        formatParam.data = UnsafeMutableRawPointer(format)
+        formatParam.data = UnsafeMutableRawPointer(formatPtr)
         
-        var stride: Int = Int(width) * 4
         var strideParam = mpv_render_param()
         strideParam.type = MPV_RENDER_PARAM_SW_STRIDE
-        strideParam.data = withUnsafeMutablePointer(to: &stride) { UnsafeMutableRawPointer($0) }
+        strideParam.data = UnsafeMutableRawPointer(stridePtr)
         
         var ptrParam = mpv_render_param()
         ptrParam.type = MPV_RENDER_PARAM_SW_POINTER
@@ -289,14 +309,15 @@ final class MPVMetalView: MTKView {
             mpv_render_context_render(mpvRenderContext, buf.baseAddress!)
         }
         
-        // Update Metal texture and draw
+        // Update Metal texture and schedule draw (do NOT call draw() directly)
         updateTextureAndDraw()
     }
     
     private func updateTextureAndDraw() {
         guard let device = self.device,
               let pixelBuffer,
-              videoWidth > 0, videoHeight > 0 else { return }
+              videoWidth > 0, videoHeight > 0,
+              !isShuttingDown else { return }
         
         // Create or update texture
         if videoTexture == nil || 
@@ -327,9 +348,8 @@ final class MPVMetalView: MTKView {
             bytesPerRow: Int(videoWidth) * 4
         )
         
-        // Trigger draw
+        // Schedule draw via display system (NEVER call draw() directly on MTKView)
         setNeedsDisplay(bounds)
-        draw()
     }
     
     override func draw(_ rect: CGRect) {
@@ -338,7 +358,8 @@ final class MPVMetalView: MTKView {
               let commandQueue,
               let pipelineState = renderPipelineState,
               let sampler,
-              !isShuttingDown else { return }
+              !isShuttingDown,
+              !hasBeenShutDown else { return }
         
         guard let commandBuffer = commandQueue.makeCommandBuffer(),
               let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDesc) else { return }
@@ -377,7 +398,7 @@ final class MPVMetalView: MTKView {
     // MARK: - Event Handling
     
     private func handleMPVEvents() {
-        guard let mpv, !isShuttingDown else { return }
+        guard let mpv, !isShuttingDown, !hasBeenShutDown else { return }
         
         while true {
             let event = mpv_wait_event(mpv, 0)
@@ -408,7 +429,7 @@ final class MPVMetalView: MTKView {
     
     /// Pause the stream (stops decoding but keeps context)
     func pause() {
-        guard let mpv, !isShuttingDown, !isStreamPaused else { return }
+        guard let mpv, !isShuttingDown, !hasBeenShutDown, !isStreamPaused else { return }
         isStreamPaused = true
         
         "set".withCString { cmdPtr in
@@ -425,7 +446,7 @@ final class MPVMetalView: MTKView {
     
     /// Resume the stream
     func resume() {
-        guard let mpv, !isShuttingDown, isStreamPaused else { return }
+        guard let mpv, !isShuttingDown, !hasBeenShutDown, isStreamPaused else { return }
         isStreamPaused = false
         
         "set".withCString { cmdPtr in
@@ -443,25 +464,40 @@ final class MPVMetalView: MTKView {
     // MARK: - Cleanup
     
     func shutdown() {
+        guard !hasBeenShutDown else { return }
         isShuttingDown = true
+        hasBeenShutDown = true
         
         renderLock.lock()
         defer { renderLock.unlock() }
         
         if let mpvRenderContext {
+            // Clear callback before freeing - pass nil to prevent further calls
             mpv_render_context_set_update_callback(mpvRenderContext, nil, nil)
             mpv_render_context_free(mpvRenderContext)
             self.mpvRenderContext = nil
         }
         
         if let mpv {
+            // Clear callback before destroying
             mpv_set_wakeup_callback(mpv, nil, nil)
             mpv_terminate_destroy(mpv)
             self.mpv = nil
         }
         
+        // Release the retained references from passRetained
+        if retainCount_render {
+            Unmanaged.passUnretained(self).release()
+            retainCount_render = false
+        }
+        if retainCount_wakeup {
+            Unmanaged.passUnretained(self).release()
+            retainCount_wakeup = false
+        }
+        
         pixelBuffer?.deallocate()
         pixelBuffer = nil
+        videoTexture = nil
     }
     
     deinit {

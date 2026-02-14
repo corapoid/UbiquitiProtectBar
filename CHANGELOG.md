@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Drag and drop camera reordering in grid view
 - Camera order persistence across app restarts
 
+### Fixed
+- Fix crash when loading camera preview (dangling pointers in MPV software render params)
+- Fix use-after-free in MPV callbacks when popover closes during stream playback
+- Fix crash from calling draw() directly on MTKView instead of setNeedsDisplay()
+- Fix double-shutdown crash when dismantleNSView and deinit both call shutdown()
+
 ## [1.0.0] - 2026-02-13
 
 ### Added
