@@ -86,6 +86,24 @@ jobs:
             fi
           done
 
+      - name: Code sign app
+        run: |
+          # Sign all frameworks first
+          for fw in build/ProtectBar.app/Contents/Frameworks/*.framework; do
+            if [ -d "$fw" ]; then
+              codesign --force --deep -s - "$fw"
+            fi
+          done
+          
+          # Sign the main executable
+          codesign --force --deep -s - build/ProtectBar.app/Contents/MacOS/ProtectBar
+          
+          # Sign the entire app bundle
+          codesign --force --deep -s - build/ProtectBar.app
+          
+          # Verify signature
+          codesign --verify --verbose build/ProtectBar.app
+
       - name: Package app
         run: |
           mkdir -p dist dmg_contents
