@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix use-after-free in MPV callbacks when popover closes during stream playback
 - Fix crash from calling draw() directly on MTKView instead of setNeedsDisplay()
 - Fix double-shutdown crash when dismantleNSView and deinit both call shutdown()
+- Fix deadlock from NSLock in renderFrame/draw/shutdown — replaced with NSRecursiveLock
+- Fix race condition: draw() now protected by renderLock to prevent concurrent Metal resource access
+- Fix renderFrame() re-checking shutdown state under lock to prevent use-after-free after shutdown
+- Fix sendMPVCommand using unsafe withMemoryRebound — now uses properly typed C pointer array
+- Fix Unmanaged.passRetained release: releases are now conditional on actual context creation
+- Fix renderFrame() capturing local copy of mpvRenderContext to prevent nil dereference after shutdown
 
 ## [1.0.0] - 2026-02-13
 
