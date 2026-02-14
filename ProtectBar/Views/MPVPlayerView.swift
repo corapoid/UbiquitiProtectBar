@@ -22,8 +22,8 @@ final class MPVMetalView: MTKView {
     private var isShuttingDown = false
     private var hasBeenShutDown = false
     private let renderLock = NSLock()
-    private var retainCount_wakeup = false  // Track if we did passRetained for wakeup callback
-    private var retainCount_render = false  // Track if we did passRetained for render callback
+    private var didRetainForWakeup = false
+    private var didRetainForRender = false
     
     var onStateChange: ((RTSPStreamManager.StreamState) -> Void)?
     
@@ -60,57 +60,9 @@ final class MPVMetalView: MTKView {
     
     private func setupRenderPipeline() {
         guard let device = self.device else { return }
-        
-        // Simple vertex/fragment shaders for texture display
-        let shaderSource = """
-        #include <metal_stdlib>
-        using namespace metal;
-        
-        struct VertexOut {
-            float4 position [[position]];
-            float2 texCoord;
-        };
-        
-        vertex VertexOut vertexShader(uint vertexID [[vertex_id]]) {
-            float2 positions[4] = {
-                float2(-1, -1),
-                float2( 1, -1),
-                float2(-1,  1),
-                float2( 1,  1)
-            };
-            float2 texCoords[4] = {
-                float2(0, 1),
-                float2(1, 1),
-                float2(0, 0),
-                float2(1, 0)
-            };
-            
-            VertexOut out;
-            out.position = float4(positions[vertexID], 0, 1);
-            out.texCoord = texCoords[vertexID];
-            return out;
-        }
-        
-        fragment float4 fragmentShader(VertexOut in [[stage_in]],
-                                       texture2d<float> tex [[texture(0)]],
-                                       sampler samp [[sampler(0)]]) {
-            return tex.sample(samp, in.texCoord);
-        }
-        """
-        
-        do {
-            let library = try device.makeLibrary(source: shaderSource, options: nil)
-            let vertexFunc = library.makeFunction(name: "vertexShader")
-            let fragFunc = library.makeFunction(name: "fragmentShader")
-            
-            let pipelineDesc = MTLRenderPipelineDescriptor()
-            pipelineDesc.vertexFunction = vertexFunc
-            pipelineDesc.fragmentFunction = fragFunc
-            pipelineDesc.colorAttachments[0].pixelFormat = colorPixelFormat
-            
-            renderPipelineState = try device.makeRenderPipelineState(descriptor: pipelineDesc)
-        } catch {
-            onStateChange?(.error("Failed to create pipeline: \(error)"))
+        renderPipelineState = Self.createRenderPipeline(device: device, pixelFormat: colorPixelFormat)
+        if renderPipelineState == nil {
+            onStateChange?(.error("Failed to create Metal pipeline"))
         }
     }
     
@@ -188,7 +140,7 @@ final class MPVMetalView: MTKView {
         
         // Set event callback - use passRetained to prevent use-after-free
         let wakeupCtx = Unmanaged.passRetained(self).toOpaque()
-        retainCount_wakeup = true
+        didRetainForWakeup = true
         mpv_set_wakeup_callback(mpv, { ctx in
             guard let ctx else { return }
             let view = Unmanaged<MPVMetalView>.fromOpaque(ctx).takeUnretainedValue()
@@ -232,7 +184,7 @@ final class MPVMetalView: MTKView {
         
         // Set update callback to trigger redraws - use passRetained to prevent use-after-free
         let renderCtxPtr = Unmanaged.passRetained(self).toOpaque()
-        retainCount_render = true
+        didRetainForRender = true
         mpv_render_context_set_update_callback(ctx, { ctx in
             guard let ctx else { return }
             let view = Unmanaged<MPVMetalView>.fromOpaque(ctx).takeUnretainedValue()
@@ -381,18 +333,8 @@ final class MPVMetalView: MTKView {
     
     private func loadURL(_ url: String) {
         guard mpv != nil else { return }
-        
         onStateChange?(.connecting)
-        
-        let cmd = "loadfile"
-        cmd.withCString { cmdPtr in
-            url.withCString { urlPtr in
-                var args: [UnsafePointer<CChar>?] = [cmdPtr, urlPtr, nil]
-                _ = args.withUnsafeMutableBufferPointer { buf in
-                    mpv_command(mpv, buf.baseAddress)
-                }
-            }
-        }
+        Self.sendMPVCommand(mpv!, args: ["loadfile", url])
     }
     
     // MARK: - Event Handling
@@ -431,34 +373,14 @@ final class MPVMetalView: MTKView {
     func pause() {
         guard let mpv, !isShuttingDown, !hasBeenShutDown, !isStreamPaused else { return }
         isStreamPaused = true
-        
-        "set".withCString { cmdPtr in
-            "pause".withCString { propPtr in
-                "yes".withCString { valPtr in
-                    var args: [UnsafePointer<CChar>?] = [cmdPtr, propPtr, valPtr, nil]
-                    _ = args.withUnsafeMutableBufferPointer { buf in
-                        mpv_command(mpv, buf.baseAddress)
-                    }
-                }
-            }
-        }
+        Self.sendMPVCommand(mpv, args: ["set", "pause", "yes"])
     }
     
     /// Resume the stream
     func resume() {
         guard let mpv, !isShuttingDown, !hasBeenShutDown, isStreamPaused else { return }
         isStreamPaused = false
-        
-        "set".withCString { cmdPtr in
-            "pause".withCString { propPtr in
-                "no".withCString { valPtr in
-                    var args: [UnsafePointer<CChar>?] = [cmdPtr, propPtr, valPtr, nil]
-                    _ = args.withUnsafeMutableBufferPointer { buf in
-                        mpv_command(mpv, buf.baseAddress)
-                    }
-                }
-            }
-        }
+        Self.sendMPVCommand(mpv, args: ["set", "pause", "no"])
     }
     
     // MARK: - Cleanup
@@ -486,13 +408,13 @@ final class MPVMetalView: MTKView {
         }
         
         // Release the retained references from passRetained
-        if retainCount_render {
+        if didRetainForRender {
             Unmanaged.passUnretained(self).release()
-            retainCount_render = false
+            didRetainForRender = false
         }
-        if retainCount_wakeup {
+        if didRetainForWakeup {
             Unmanaged.passUnretained(self).release()
-            retainCount_wakeup = false
+            didRetainForWakeup = false
         }
         
         pixelBuffer?.deallocate()
@@ -508,6 +430,56 @@ final class MPVMetalView: MTKView {
     
     private func setMPVOption(_ name: String, _ value: String) {
         mpv_set_option_string(mpv, name, value)
+    }
+}
+
+// MARK: - Metal Pipeline & MPV Helpers
+
+extension MPVMetalView {
+    static func createRenderPipeline(
+        device: MTLDevice,
+        pixelFormat: MTLPixelFormat
+    ) -> MTLRenderPipelineState? {
+        let shaderSource = """
+        #include <metal_stdlib>
+        using namespace metal;
+        struct VertexOut {
+            float4 position [[position]];
+            float2 texCoord;
+        };
+        vertex VertexOut vertexShader(uint vertexID [[vertex_id]]) {
+            float2 positions[4] = {float2(-1,-1),float2(1,-1),float2(-1,1),float2(1,1)};
+            float2 texCoords[4] = {float2(0,1),float2(1,1),float2(0,0),float2(1,0)};
+            VertexOut out;
+            out.position = float4(positions[vertexID], 0, 1);
+            out.texCoord = texCoords[vertexID];
+            return out;
+        }
+        fragment float4 fragmentShader(VertexOut in [[stage_in]],
+                                       texture2d<float> tex [[texture(0)]],
+                                       sampler samp [[sampler(0)]]) {
+            return tex.sample(samp, in.texCoord);
+        }
+        """
+        guard let library = try? device.makeLibrary(source: shaderSource, options: nil),
+              let vertexFunc = library.makeFunction(name: "vertexShader"),
+              let fragFunc = library.makeFunction(name: "fragmentShader") else { return nil }
+        let desc = MTLRenderPipelineDescriptor()
+        desc.vertexFunction = vertexFunc
+        desc.fragmentFunction = fragFunc
+        desc.colorAttachments[0].pixelFormat = pixelFormat
+        return try? device.makeRenderPipelineState(descriptor: desc)
+    }
+
+    static func sendMPVCommand(_ mpv: OpaquePointer, args: [String]) {
+        var cStrings = args.map { strdup($0) }
+        cStrings.append(nil)
+        cStrings.withUnsafeMutableBufferPointer { buf in
+            buf.baseAddress!.withMemoryRebound(to: UnsafePointer<CChar>?.self, capacity: buf.count) { ptr in
+                _ = mpv_command(mpv, ptr)
+            }
+        }
+        for ptr in cStrings { free(ptr) }
     }
 }
 
