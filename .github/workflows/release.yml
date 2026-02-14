@@ -100,6 +100,16 @@ jobs:
               cp -R "$fw" build/ProtectBar.app/Contents/Frameworks/
             fi
           done
+          
+          # Copy Sparkle framework from artifacts (binary dependency)
+          SPARKLE_FW=".build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"
+          if [ -d "$SPARKLE_FW" ]; then
+            cp -R "$SPARKLE_FW" build/ProtectBar.app/Contents/Frameworks/
+          fi
+          
+          # List frameworks for debugging
+          echo "Frameworks in bundle:"
+          ls -la build/ProtectBar.app/Contents/Frameworks/
 
       - name: Package app
         run: |
