@@ -96,12 +96,6 @@ struct CameraCellView: View {
                     }
 
                     Spacer()
-
-                    // Connection status
-                    Circle()
-                        .fill(camera.isConnected ? Color.green : Color.red)
-                        .frame(width: 6, height: 6)
-                        .padding(6)
                 }
                 Spacer()
             }
