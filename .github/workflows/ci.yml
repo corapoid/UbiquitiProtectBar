@@ -32,9 +32,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .build
-          key: ${{ runner.os }}-swift-${{ hashFiles('**/Package.resolved') }}
+          key: ${{ runner.os }}-swift-v2-${{ hashFiles('**/Package.resolved') }}
           restore-keys: |
-            ${{ runner.os }}-swift-
+            ${{ runner.os }}-swift-v2-
             
       - name: Resolve dependencies
         run: swift package resolve
