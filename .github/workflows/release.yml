@@ -79,6 +79,21 @@ jobs:
           # Copy resources (localizations)
           cp -R ProtectBar/Resources/*.lproj build/ProtectBar.app/Contents/Resources/ 2>/dev/null || true
           
+          # Create app icon (.icns) from PNG assets
+          ICONSET_DIR="build/AppIcon.iconset"
+          mkdir -p "$ICONSET_DIR"
+          cp ProtectBar/Assets.xcassets/AppIcon.appiconset/icon_16x16.png "$ICONSET_DIR/icon_16x16.png"
+          cp ProtectBar/Assets.xcassets/AppIcon.appiconset/icon_16x16@2x.png "$ICONSET_DIR/icon_16x16@2x.png"
+          cp ProtectBar/Assets.xcassets/AppIcon.appiconset/icon_32x32.png "$ICONSET_DIR/icon_32x32.png"
+          cp ProtectBar/Assets.xcassets/AppIcon.appiconset/icon_32x32@2x.png "$ICONSET_DIR/icon_32x32@2x.png"
+          cp ProtectBar/Assets.xcassets/AppIcon.appiconset/icon_128x128.png "$ICONSET_DIR/icon_128x128.png"
+          cp ProtectBar/Assets.xcassets/AppIcon.appiconset/icon_128x128@2x.png "$ICONSET_DIR/icon_128x128@2x.png"
+          cp ProtectBar/Assets.xcassets/AppIcon.appiconset/icon_256x256.png "$ICONSET_DIR/icon_256x256.png"
+          cp ProtectBar/Assets.xcassets/AppIcon.appiconset/icon_256x256@2x.png "$ICONSET_DIR/icon_256x256@2x.png"
+          cp ProtectBar/Assets.xcassets/AppIcon.appiconset/icon_512x512.png "$ICONSET_DIR/icon_512x512.png"
+          cp ProtectBar/Assets.xcassets/AppIcon.appiconset/icon_512x512@2x.png "$ICONSET_DIR/icon_512x512@2x.png"
+          iconutil -c icns "$ICONSET_DIR" -o build/ProtectBar.app/Contents/Resources/AppIcon.icns
+          
           # Copy all frameworks from release build
           for fw in .build/release/*.framework; do
             if [ -d "$fw" ]; then
