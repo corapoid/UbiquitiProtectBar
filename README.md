@@ -33,10 +33,31 @@ A lightweight macOS menu bar application for monitoring UniFi Protect cameras.
 
 Download the latest release from [Releases](https://github.com/corapoid/UbiquitiProtectBar/releases).
 
-> **Note:** Since the app is not signed with an Apple Developer ID, macOS may show "ProtectBar is damaged" when first opening. To fix this, run in Terminal after copying to Applications:
-> ```bash
-> xattr -cr /Applications/ProtectBar.app
-> ```
+### Fixing "App is damaged" error
+
+When you first try to open ProtectBar, macOS may show:
+
+> "ProtectBar" is damaged and can't be opened. You should move it to the Trash.
+
+**Why does this happen?**
+
+This is not actually damage - it's macOS Gatekeeper blocking the app because it's not signed with an Apple Developer ID certificate ($99/year). When you download an app from the internet, macOS adds a "quarantine" attribute to the file. For unsigned apps, this triggers the "damaged" error.
+
+**How to fix it:**
+
+After copying ProtectBar.app to Applications, open Terminal and run:
+
+```bash
+xattr -cr /Applications/ProtectBar.app
+```
+
+This removes the quarantine attribute. If it doesn't work, try with sudo:
+
+```bash
+sudo xattr -cr /Applications/ProtectBar.app
+```
+
+Alternatively, you can right-click the app → Open → Open (bypass Gatekeeper for this app).
 
 ### Homebrew (coming soon)
 
