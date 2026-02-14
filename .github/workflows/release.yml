@@ -86,16 +86,6 @@ jobs:
             fi
           done
 
-      - name: Code sign app
-        run: |
-          # Ad-hoc sign only the main executable (frameworks from SPM have non-standard structure)
-          codesign --force -s - build/ProtectBar.app/Contents/MacOS/ProtectBar
-          
-          # Sign the app bundle without --deep to avoid framework issues
-          codesign --force -s - build/ProtectBar.app
-          
-          echo "App signed with ad-hoc signature"
-
       - name: Package app
         run: |
           mkdir -p dist dmg_contents

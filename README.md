@@ -33,6 +33,11 @@ A lightweight macOS menu bar application for monitoring UniFi Protect cameras.
 
 Download the latest release from [Releases](https://github.com/corapoid/UbiquitiProtectBar/releases).
 
+> **Note:** Since the app is not signed with an Apple Developer ID, macOS may show "ProtectBar is damaged" when first opening. To fix this, run in Terminal after copying to Applications:
+> ```bash
+> xattr -cr /Applications/ProtectBar.app
+> ```
+
 ### Homebrew (coming soon)
 
 ```bash
